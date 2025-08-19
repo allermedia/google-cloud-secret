@@ -6,7 +6,6 @@
   "main": "./lib/index.cjs",
   "module": "./src/index.js",
   "types": "./types/index.d.ts",
-  "private": true,
   "scripts": {
     "test": "mocha",
     "posttest": "npm run lint && npm run build",
