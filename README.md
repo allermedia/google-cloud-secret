@@ -9,12 +9,13 @@ Concurrent update of google cloud secret. No rocket science, just rely on secret
 
 ## Api
 
-### `new ConcurrentSecret(name[, clientOrClientOptions])`
+### `new ConcurrentSecret(name[, clientOrClientOptions, gracePeriodMs])`
 
 **Arguments:**
 
 - `name`: secret resource name in format `projects/{project number}/secrets/{secret name}`
 - `clientOrClientOptions`: optional [`@google-cloud/secret-manager`](https://www.npmjs.com/package/@google-cloud/secret-manager) secret manager client or options to pass to secret manager client
+- `gracePeriodMs`: optional lock grace period in milliseconds, continue if secret is locked beyond grace period, defaults to 60000
 
 **Properties**:
 
