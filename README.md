@@ -5,7 +5,7 @@ Concurrent update of google cloud secret. No rocket science, just rely on secret
 [![Build](https://github.com/allermedia/google-secret/actions/workflows/build.yaml/badge.svg)](https://github.com/allermedia/google-secret/actions/workflows/build.yaml)
 
 - [Api](#api)
-- [Fake google secret manager server](#api)
+- [Fake google secret manager server](#fake-google-secret-manager-server)
 
 ## Api
 
@@ -43,7 +43,7 @@ Throws if lock or fn fails. If lock fails inspect `error.code`.
 #### Example
 
 ```javascript
-import { ConcurrentSecret } from '@aller/google-secret';
+import { ConcurrentSecret } from '@aller/google-cloud-secret';
 
 const concurrentSecret = new ConcurrentSecret('projects/1234567/secrets/my-concurrent-secret-1');
 
