@@ -30,7 +30,7 @@ declare module '@aller/google-cloud-secret' {
 		 * Get latest version
 		 * 
 		 */
-		getLatestVersion(throwOnNotFound?: boolean): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecretVersion | null>;
+		getLatestVersion(throwOnNotFound?: boolean): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecretVersion>;
 		/**
 		 * @param fn get new secret function, call this function if a lock was acheieved
 		 * @param  args optional arguments to function
@@ -46,6 +46,70 @@ declare module '@aller/google-cloud-secret' {
 		 * Unlock secret
 		 */
 		unlock(): Promise<void>;
+	}
+
+	export {};
+}
+
+declare module '@aller/google-cloud-secret/fake-server/fake-secret-manager-server' {
+	/**
+	 * Start fake server
+	 * @param options Fake gRPC server options
+	 * @returns Fake gRPC Google Secret Manager server
+	 */
+	export default function startServer_1(options: startServerOptions): Promise<import("@grpc/grpc-js").Server>;
+	/**
+	 * Reset all fake secrets and versions
+	 */
+	export function reset(): void;
+	export type startServerOptions = {
+		/**
+		 * secret manages sends credentials, hence certs need to be passed
+		 */
+		cert: import("@grpc/grpc-js").KeyCertPair[];
+		/**
+		 * gRPC server port, default to random 50NNN something
+		 */
+		port?: number;
+	};
+	export type FakeSecretVersion = {
+		/**
+		 * secret versions
+		 */
+		version: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecretVersion;
+		/**
+		 * secret data
+		 */
+		data?: Buffer;
+	};
+	export type FakeSecretData = {
+		/**
+		 * Secret
+		 */
+		secret: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret;
+		/**
+		 * secret versions
+		 */
+		versions: FakeSecretVersion[];
+	};
+	export namespace RpcCodes {
+		let OK: number;
+		let CANCELLED: number;
+		let UNKNOWN: number;
+		let INVALID_ARGUMENT: number;
+		let DEADLINE_EXCEEDED: number;
+		let NOT_FOUND: number;
+		let ALREADY_EXISTS: number;
+		let PERMISSION_DENIED: number;
+		let UNAUTHENTICATED: number;
+		let RESOURCE_EXHAUSTED: number;
+		let FAILED_PRECONDITION: number;
+		let ABORTED: number;
+		let OUT_OF_RANGE: number;
+		let UNIMPLEMENTED: number;
+		let INTERNAL: number;
+		let UNAVAILABLE: number;
+		let DATA_LOSS: number;
 	}
 
 	export {};

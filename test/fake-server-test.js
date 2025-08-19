@@ -3,7 +3,7 @@ import { randomInt } from 'node:crypto';
 import secretManager from '@google-cloud/secret-manager';
 import nock from 'nock';
 
-import { startServer } from './helpers/fake-secret-manager-server.js';
+import { startServer } from './helpers/fake-server.js';
 
 describe('fake grpc server', () => {
   it('can be started and stopped', async () => {

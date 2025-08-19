@@ -1,18 +1,28 @@
 import { randomInt, randomBytes } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path/posix';
 
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import { ReflectionService } from '@grpc/reflection';
+// import { ReflectionService } from '@grpc/reflection';
 import Long from 'long';
 
 import { RpcCodes } from './rpc-codes.js';
 
 export { RpcCodes } from './rpc-codes.js';
 
-/** @type {Map<string, FakeSecretData} */
+/** @type {Map<string, FakeSecretData>} */
 const db = new Map();
+
+class FakeRpcError extends Error {
+  /**
+   * @param {string} message
+   * @param {number} code
+   */
+  constructor(message, code) {
+    super(message);
+    this.code = code;
+  }
+}
 
 // Fake your secret manager implementation
 const exampleServer = {
@@ -26,9 +36,7 @@ const exampleServer = {
     const name = path.join(payload.parent, 'secrets', payload.secretId);
 
     if (db.has(name)) {
-      const err = new Error(`${name} already exists`);
-      err.code = RpcCodes.ALREADY_EXISTS;
-      return respond(err);
+      return respond(new FakeRpcError(`${name} already exists`, RpcCodes.ALREADY_EXISTS));
     }
 
     const now = new Date();
@@ -47,6 +55,7 @@ const exampleServer = {
       name,
       replication: {
         ...payload.secret.replication,
+        // @ts-ignore
         replication: !payload.secret.replication?.automatic ? 'userManaged' : 'automatic',
       },
       etag: `"${randomBytes(7).toString('hex')}"`,
@@ -69,9 +78,7 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(payload.name))) {
-      const err = new Error(`Secret [${payload.name}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     respond(null, { ...fakeSecret.secret });
@@ -86,9 +93,7 @@ const exampleServer = {
     const parentSecret = db.get(payload.parent);
 
     if (!parentSecret) {
-      const err = new Error(`Secret [${payload.parent}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret [${payload.parent}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     const now = new Date();
@@ -127,19 +132,18 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      const err = new Error(`Secret [${parent}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
 
     if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      const err = new Error(
-        "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff."
+      return respond(
+        new FakeRpcError(
+          "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
+          RpcCodes.FAILED_PRECONDITION
+        )
       );
-      err.code = RpcCodes.FAILED_PRECONDITION;
-      return respond(err);
     }
 
     fakeVersion.version.state = 'DISABLED';
@@ -163,24 +167,21 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      const err = new Error(`Secret [${parent}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
     if (!fakeVersion) {
-      const err = new Error(`Secret Version [${payload.name}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret Version [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      const err = new Error(
-        "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff."
+      return respond(
+        new FakeRpcError(
+          "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
+          RpcCodes.FAILED_PRECONDITION
+        )
       );
-      err.code = RpcCodes.FAILED_PRECONDITION;
-      return respond(err);
     }
 
     fakeVersion.version.state = 'ENABLED';
@@ -188,6 +189,11 @@ const exampleServer = {
 
     respond(null, fakeVersion.version);
   },
+  /**
+   * Get secret version
+   * @param {any} req
+   * @param {CallableFunction} respond
+   */
   GetSecretVersion(req, respond) {
     const payload = req.request;
     const parts = payload.name.split('/');
@@ -196,36 +202,37 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      const err = new Error(`Secret [${parent}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     const fakeVersions = fakeSecret.versions;
     const fakeVersion = version === 'latest' ? fakeVersions[0] : fakeVersions.find((v) => v.version.name === payload.name);
 
     if (!fakeVersion) {
-      const err = new Error(
-        !fakeVersions.length ? `Secret [${parent}] not found or has no versions.` : `Secret Version [${payload.name}] not found.`
+      return respond(
+        new FakeRpcError(
+          !fakeVersions.length ? `Secret [${parent}] not found or has no versions.` : `Secret Version [${payload.name}] not found.`,
+          RpcCodes.NOT_FOUND
+        )
       );
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
     }
 
     respond(null, fakeVersion.version);
   },
-
+  /**
+   * List secret versions
+   * @param {any} req
+   * @param {CallableFunction} respond
+   */
   ListSecretVersions(req, respond) {
     let fakeSecret;
     if (!(fakeSecret = db.get(req.request.parent))) {
-      const err = new Error(`${req.payload.parent} doesn't exists`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`${req.payload.parent} doesn't exists`, RpcCodes.NOT_FOUND));
     }
 
     const versions = fakeSecret.versions.map((v) => v.version);
 
-    /** @type {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ListSecretVersionsResponse} */
+    /** @type {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.IListSecretVersionsResponse} */
     const response = {
       totalSize: versions.length,
       versions,
@@ -233,7 +240,11 @@ const exampleServer = {
 
     respond(null, response);
   },
-
+  /**
+   * Destroy secret version
+   * @param {any} req
+   * @param {CallableFunction} respond
+   */
   DestroySecretVersion(req, respond) {
     const payload = req.request;
     const parts = payload.name.split('/');
@@ -242,37 +253,30 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      const err = new Error(`Secret [${parent}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
 
     if (!fakeVersion) {
-      const err = new Error(`Secret Version [${payload.name}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret Version [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     if (fakeVersion.version.state === 'DESTROYED') {
-      const err = new Error('SecretVersion.state is already DESTROYED.');
-      err.code = RpcCodes.FAILED_PRECONDITION;
-      return respond(err);
+      return respond(new FakeRpcError('SecretVersion.state is already DESTROYED.', RpcCodes.FAILED_PRECONDITION));
     }
 
     if (fakeVersion.version.scheduledDestroyTime) {
-      const err = new Error('SecretVersion is already scheduled for DESTRUCTION.');
-      err.code = RpcCodes.FAILED_PRECONDITION;
-      return respond(err);
+      return respond(new FakeRpcError('SecretVersion is already scheduled for DESTRUCTION.', RpcCodes.FAILED_PRECONDITION));
     }
 
     if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      const err = new Error(
-        "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff."
+      return respond(
+        new FakeRpcError(
+          "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
+          RpcCodes.FAILED_PRECONDITION
+        )
       );
-      err.code = RpcCodes.FAILED_PRECONDITION;
-      return respond(err);
     }
 
     const now = new Date();
@@ -315,22 +319,22 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(name))) {
-      const err = new Error(`Secret [${name}] not found.`);
-      err.code = RpcCodes.NOT_FOUND;
-      return respond(err);
+      return respond(new FakeRpcError(`Secret [${name}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     if (payload.secret?.etag && payload.secret?.etag !== fakeSecret.secret.etag) {
-      const err = new Error(
-        "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff."
+      return respond(
+        new FakeRpcError(
+          "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
+          RpcCodes.FAILED_PRECONDITION
+        )
       );
-      err.code = RpcCodes.FAILED_PRECONDITION;
-      return respond(err);
     }
 
     if (payload.updateMask?.paths?.length) {
       for (const prop of payload.updateMask.paths) {
         if (prop in payload.secret) {
+          // @ts-ignore
           fakeSecret.secret[prop] = payload.secret[prop];
         }
       }
@@ -348,23 +352,27 @@ const servicePackageDefinition = protoLoader.loadSync(['./google/cloud/secretman
 
 const serviceProto = grpc.loadPackageDefinition(servicePackageDefinition);
 
-const cert = {
-  private_key: fs.readFileSync('./tmp/mkcert/dev-key.pem'),
-  cert_chain: fs.readFileSync('./tmp/mkcert/dev-cert.pem'),
-};
-
-export async function startServer(port) {
-  port = port || `50${randomInt(100).toString().padStart(3, '0')}`;
-
+/**
+ * Start fake server
+ * @param {startServerOptions} options Fake gRPC server options
+ * @returns {Promise<import('@grpc/grpc-js').Server>} Fake gRPC Google Secret Manager server
+ */
+export async function startServer(options) {
+  const { port, cert } = {
+    ...options,
+    port: options.port || Number(`50${randomInt(100).toString().padStart(3, '0')}`),
+  };
   const server = new grpc.Server();
 
+  // @ts-ignore
   server.addService(serviceProto.google.cloud.secretmanager.v1.SecretManagerService.service, exampleServer);
 
-  const reflection = new ReflectionService(servicePackageDefinition);
-  reflection.addToServer(server);
+  //// import { ReflectionService } from '@grpc/reflection';
+  // const reflection = new ReflectionService(servicePackageDefinition);
+  // reflection.addToServer(server);
 
   await new Promise((resolve, reject) => {
-    server.bindAsync(`0.0.0.0:${port}`, grpc.ServerCredentials.createSsl(null, [cert], false), (err) => {
+    server.bindAsync(`0.0.0.0:${port}`, grpc.ServerCredentials.createSsl(null, cert, false), (err) => {
       if (err) {
         return reject(err);
       }
@@ -384,11 +392,20 @@ export async function startServer(port) {
   return server;
 }
 
+/**
+ * Reset all fake secrets and versions
+ */
 export function reset() {
   db.clear();
 }
 
+export default startServer;
+
 /**
+ * @typedef {object} startServerOptions
+ * @property {import('@grpc/grpc-js').KeyCertPair[]} cert secret manages sends credentials, hence certs need to be passed
+ * @property {number} [port] gRPC server port, default to random 50NNN something
+ *
  * @typedef {object} FakeSecretVersion
  * @property {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecretVersion} version secret versions
  * @property {Buffer} [data] secret data

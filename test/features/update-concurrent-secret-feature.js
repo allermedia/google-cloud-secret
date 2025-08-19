@@ -6,7 +6,7 @@ import * as ck from 'chronokinesis';
 import nock from 'nock';
 
 import { ConcurrentSecret } from '../../src/index.js';
-import { startServer, RpcCodes, reset } from '../helpers/fake-secret-manager-server.js';
+import { startServer, RpcCodes, reset } from '../helpers/fake-server.js';
 
 Feature('update concurrent secret', () => {
   before(() => {

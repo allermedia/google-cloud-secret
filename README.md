@@ -4,6 +4,9 @@ Concurrent update of google cloud secret. No rocket science, just rely on secret
 
 [![Build](https://github.com/allermedia/google-secret/actions/workflows/build.yaml/badge.svg)](https://github.com/allermedia/google-secret/actions/workflows/build.yaml)
 
+- [Api](#api)
+- [Fake google secret manager server](#api)
+
 ## Api
 
 ### `new ConcurrentSecret(name[, clientOrClientOptions])`
@@ -89,4 +92,74 @@ npm t
 
 ```sh
 GRPC_TRACE=all GRPC_VERBOSITY=DEBUG mocha -b
+```
+
+### Fake google secret manager server
+
+The package ships with a fake google secret manager gRPC server to facilitate testing your library.
+
+To prepare for running fake server follow [make certs](#make-certificates-with-mkcert-ca) before starting.
+
+```javascript
+import { randomInt } from 'node:crypto';
+import fs from 'node:fs';
+
+import secretManager from '@google-cloud/secret-manager';
+import * as ck from 'chronokinesis';
+import nock from 'nock';
+
+import { ConcurrentSecret } from '@aller/google-cloud-secret';
+
+import { startServer, reset } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
+
+describe('concurrent secret', () => {
+  before(() => {
+    nock('https://oauth2.googleapis.com')
+      .post('/token', (body) => {
+        return body.target_audience ? new URL(body.target_audience) : true;
+      })
+      .query(true)
+      .reply(200, { id_token: 'google-auth-id-token' })
+      .persist();
+  });
+  after(nock.cleanAll);
+
+  let server;
+  let client;
+  before('grpc server', async () => {
+    server = await startServer({
+      cert: [
+        {
+          private_key: fs.readFileSync('./tmp/mkcert/dev-key.pem'),
+          cert_chain: fs.readFileSync('./tmp/mkcert/dev-cert.pem'),
+        },
+      ],
+    });
+    client = new secretManager.v1.SecretManagerServiceClient({
+      apiEndpoint: 'localhost',
+      port: server.origin.port,
+    });
+  });
+  after(async () => {
+    client = await client.close();
+    server = server?.forceShutdown();
+    reset();
+  });
+  after(ck.reset);
+
+  describe('getLatestVersion(throwOnNotFound)', () => {
+    it('getLatestVersion() null if not found', async () => {
+      const secretId = `my-secret-${randomInt(10000)}`;
+
+      await client.createSecret({
+        parent: 'projects/1234',
+        secretId,
+        secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} }, annotations: { foo: 'bar' } },
+      });
+
+      const concurrentSecret = new ConcurrentSecret(`projects/1234/secrets/${secretId}`, client);
+      expect(await concurrentSecret.getLatestVersion()).to.be.null;
+    });
+  });
+});
 ```

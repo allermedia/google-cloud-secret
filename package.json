@@ -9,7 +9,7 @@
   "private": true,
   "scripts": {
     "test": "mocha",
-    "posttest": "npm run lint",
+    "posttest": "npm run lint && npm run build",
     "lint": "eslint . --cache && prettier . -c",
     "cov:html": "c8 -n src -r html -r text mocha",
     "test:lcov": "c8 -n src -r lcov -r text mocha",
@@ -21,6 +21,11 @@
       "types": "./types/index.d.ts",
       "require": "./lib/index.cjs",
       "import": "./src/index.js"
+    },
+    "./fake-server/fake-secret-manager-server": {
+      "types": "./types/index.d.ts",
+      "require": "./lib/fake-server/fake-secret-manager-server.cjs",
+      "import": "./src/fake-server/fake-secret-manager-server.js"
     }
   },
   "keywords": [
@@ -42,7 +47,6 @@
     "@google-cloud/secret-manager": "^6.1.0",
     "@grpc/grpc-js": "^1.13.4",
     "@grpc/proto-loader": "^0.8.0",
-    "@grpc/reflection": "^1.0.4",
     "@rollup/plugin-commonjs": "^28.0.6",
     "c8": "^10.1.3",
     "chai": "^5.2.1",
@@ -58,10 +62,13 @@
     "rollup": "^4.46.3"
   },
   "peerDependencies": {
-    "@google-cloud/secret-manager": ">=6.1",
+    "@google-cloud/secret-manager": "6.x",
+    "@grpc/grpc-js": "1.x",
+    "@grpc/proto-loader": "0.x",
     "long": ">=5"
   },
   "files": [
+    "lib",
     "src",
     "types/index.d*"
   ]

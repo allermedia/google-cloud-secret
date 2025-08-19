@@ -1,4 +1,4 @@
-import { SecretManagerServiceClient, protos } from '@google-cloud/secret-manager';
+import { protos } from '@google-cloud/secret-manager';
 
 export interface AddSecretRequest {
   request: protos.google.cloud.secretmanager.v1.CreateSecretRequest;
