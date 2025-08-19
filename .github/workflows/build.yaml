@@ -33,7 +33,7 @@ jobs:
           mkdir -p ./tmp/mkcert
           mkcert -key-file ./tmp/mkcert/dev-key.pem -cert-file ./tmp/mkcert/dev-cert.pem localhost
       - run: npm i
-      - run: npm t
+      - run: npm t -- -t 10000
         env:
           ALLOW_TEST_ENV_OVERRIDE: true
           INTERPRET_CHAR_AS_DOT: _
