@@ -25,35 +25,3 @@ export default Object.values(exports).map((exp) => {
     ],
   };
 });
-
-// export default toBuild;
-// console.log(exports, toBuild);
-
-// export default [
-//   {
-//     input: module,
-//     external: [...external],
-//     plugins: [commonjs()],
-//     output: [
-//       {
-//         file: main,
-//         exports: 'named',
-//         format: 'cjs',
-//         footer: 'module.exports = Object.assign(exports.default, exports);',
-//       },
-//     ],
-//   },
-//   {
-//     input: './src/fake-server/fake-secret-manager-server.js',
-//     external: [...external],
-//     plugins: [commonjs()],
-//     output: [
-//       {
-//         file: main,
-//         exports: 'named',
-//         format: 'cjs',
-//         footer: 'module.exports = Object.assign(exports.default, exports);',
-//       },
-//     ],
-//   },
-// ];

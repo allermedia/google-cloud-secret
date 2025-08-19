@@ -81,7 +81,7 @@ export class ConcurrentSecret {
       const latestVersion = await this.getLatestVersion();
 
       await this.client.addSecretVersion({ parent: secret.name, payload: { data: Buffer.from(secretData) } });
-      if (latestVersion && latestVersion.state !== 'DESTROYED' && !latestVersion?.scheduledDestroyTime) {
+      if (latestVersion && latestVersion.state !== 'DESTROYED' && !latestVersion.scheduledDestroyTime) {
         await this.client.destroySecretVersion({ name: latestVersion.name });
       }
 

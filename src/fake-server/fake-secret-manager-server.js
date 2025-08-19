@@ -122,9 +122,6 @@ const exampleServer = {
    * @param {CallableFunction} respond
    */
   DisableSecretVersion(req, respond) {
-    // Throw 9 FAILED_PRECONDITION if etag mismatch
-    // Message: "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff."
-
     const payload = req.request;
     const parts = payload.name.split('/');
     parts.splice(-2);
@@ -157,9 +154,6 @@ const exampleServer = {
    * @param {CallableFunction} respond
    */
   EnableSecretVersion(req, respond) {
-    // Throw 9 FAILED_PRECONDITION if etag mismatch
-    // Message: "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff."
-
     const payload = req.request;
     const parts = payload.name.split('/');
     parts.splice(-2);
