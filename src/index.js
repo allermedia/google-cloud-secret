@@ -16,9 +16,9 @@ export class ConcurrentSecretError extends Error {
 
 export class ConcurrentSecret {
   /**
-   * @param {string} name secret name, example `projects/852415887963/secrets/concurrent-test-secret`
+   * @param {string} name secret resource name, e.g. `projects/1234/secrets/concurrent-test-secret`
    * @param {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [clientOptions]
-   * @param {number} [gracePeriodMs] Lock grace period in milliseconds, continue if secret is locked beyond grace period
+   * @param {number} [gracePeriodMs] lock grace period in milliseconds, continue if secret is locked beyond grace period
    */
   constructor(name, clientOptions, gracePeriodMs) {
     this.name = name;
@@ -69,7 +69,7 @@ export class ConcurrentSecret {
   /**
    * @param {(...args: any) => Promise<string | Buffer>} fn get new secret function, call this function if a lock was acheieved
    * @param  {...any} args optional arguments to function
-   * @returns {Promise<Buffer | string | undefined>} new secret version data
+   * @returns {Promise<string | Buffer>} new secret version data
    */
   async optimisticUpdate(fn, ...args) {
     const secret = await this.lock();

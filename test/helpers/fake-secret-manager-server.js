@@ -189,11 +189,6 @@ const exampleServer = {
     respond(null, fakeVersion.version);
   },
   GetSecretVersion(req, respond) {
-    // versions/latest returns latest version regardless of state, DISABLED
-
-    // Throw 9 FAILED_PRECONDITION if disabled
-    // Message: "Secret Version [projects/852415887963/secrets/concurrent-test-secret/versions/1] is in DISABLED state."
-
     const payload = req.request;
     const parts = payload.name.split('/');
     const [, version] = parts.splice(-2);

@@ -2,7 +2,42 @@
 
 Concurrent update of google cloud secret. No rocket science, just rely on secret etag to give a hint if secret has been locked by someone else.
 
-## Example
+[![Build](https://github.com/allermedia/google-secret/actions/workflows/build.yaml/badge.svg)](https://github.com/allermedia/google-secret/actions/workflows/build.yaml)
+
+## Api
+
+### `new ConcurrentSecret(name[, clientOrClientOptions])`
+
+**Arguments:**
+
+- `name`: secret resource name in format `projects/{project number}/secrets/{secret name}`
+- `clientOrClientOptions`: optional [`@google-cloud/secret-manager`](https://www.npmjs.com/package/@google-cloud/secret-manager) secret manager client or options to pass to secret manager client
+
+**Properties**:
+
+- `client`: [`@google-cloud/secret-manager`](https://www.npmjs.com/package/@google-cloud/secret-manager) secret manager client
+  can be closed if created with client options
+
+#### `concurrentSecret.optimisticUpdate(fn, ...args)`
+
+Update secret with new version.
+
+**Arguments:**
+
+- `fn`: function to be called if lock succeeds, must return string of buffer
+- `...args`: optional arguments passed to `fn`
+
+**Returns:**
+
+Result from `fn(...args)`.
+
+Throws if lock or fn fails. If lock fails inspect `error.code`.
+
+**Common failure gRPC codes:**
+
+- 9: `FAILED_PRECONDITION` on etag mismatch
+
+#### Example
 
 ```javascript
 import { ConcurrentSecret } from '@aller/google-secret';
