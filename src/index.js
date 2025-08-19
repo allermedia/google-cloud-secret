@@ -173,3 +173,5 @@ export class ConcurrentSecret {
     this.secret = updatedSecret;
   }
 }
+
+export default ConcurrentSecret;
