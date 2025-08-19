@@ -28,6 +28,9 @@
       "import": "./src/fake-server/fake-secret-manager-server.js"
     }
   },
+  "engines": {
+    "node": ">=22"
+  },
   "keywords": [
     "google cloud secret manager",
     "secret",
