@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        node-version: [22]
+    steps:
+      - name: install mkcert
+        run: |
+          curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+          chmod +x mkcert-v*-linux-amd64
+          cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+          mkcert -install
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: generate certificates
+        run: |
+          mkdir -p ./tmp/mkcert
+          mkcert -key-file ./tmp/mkcert/dev-key.pem -cert-file ./tmp/mkcert/dev-cert.pem localhost
+      - run: npm i
+      - run: npm t
+        env:
+          ALLOW_TEST_ENV_OVERRIDE: true
+          INTERPRET_CHAR_AS_DOT: _
