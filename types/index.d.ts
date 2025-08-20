@@ -32,6 +32,10 @@ declare module '@aller/google-cloud-secret' {
 		 */
 		getLatestVersion(throwOnNotFound?: boolean): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecretVersion>;
 		/**
+		 * Get latest version secret data
+		 */
+		getLatestData(): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.IAccessSecretVersionResponse>;
+		/**
 		 * @param fn get new secret function, call this function if a lock was acheieved
 		 * @param  args optional arguments to function
 		 * @returns new secret version data

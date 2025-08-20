@@ -67,6 +67,13 @@ export class ConcurrentSecret {
     }
   }
   /**
+   * Get latest version secret data
+   */
+  async getLatestData() {
+    const [data] = await this.client.accessSecretVersion({ name: this.latestVersionName });
+    return data;
+  }
+  /**
    * @param {(...args: any) => Promise<string | Buffer>} fn get new secret function, call this function if a lock was acheieved
    * @param  {...any} args optional arguments to function
    * @returns {Promise<string | Buffer>} new secret version data

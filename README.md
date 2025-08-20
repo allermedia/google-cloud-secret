@@ -62,6 +62,16 @@ function fetchFreshSecret() {
 }
 ```
 
+### `concurrentSecret.getLatestData()`
+
+Get latest version secret data.
+
+**Returns:**
+
+- `name`: secret version name
+- `payload`:
+  - `data`: buffer with actual secret
+
 ## Testing
 
 Tests are ran against a fake grpc Secret Manager server. Package `@google-cloud/secret-manager` requires TLS so certs has to be created.

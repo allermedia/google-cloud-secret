@@ -23,3 +23,7 @@ export interface AddSecretVersionRequest {
 export interface UpdatesSecretRequest {
   request: protos.google.cloud.secretmanager.v1.UpdateSecretRequest;
 }
+
+export interface AccessSecretVersionRequest {
+  request: protos.google.cloud.secretmanager.v1.IAccessSecretVersionRequest;
+}

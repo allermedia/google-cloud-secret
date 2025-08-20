@@ -338,6 +338,36 @@ const exampleServer = {
 
     respond(null, fakeSecret.secret);
   },
+  /**
+   * Access secret version data
+   * @param {import('../../types/types.js').AccessSecretVersionRequest} req
+   * @param {CallableFunction} respond
+   */
+  AccessSecretVersion(req, respond) {
+    const payload = req.request;
+    const parts = payload.name.split('/');
+    const [, version] = parts.splice(-2);
+    const parent = path.join(...parts);
+
+    let fakeSecret;
+    if (!(fakeSecret = db.get(parent))) {
+      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
+    }
+
+    const fakeVersions = fakeSecret.versions;
+    const fakeVersion = version === 'latest' ? fakeVersions[0] : fakeVersions.find((v) => v.version.name === payload.name);
+
+    if (!fakeVersion) {
+      return respond(
+        new FakeRpcError(
+          !fakeVersions.length ? `Secret [${parent}] not found or has no versions.` : `Secret Version [${payload.name}] not found.`,
+          RpcCodes.NOT_FOUND
+        )
+      );
+    }
+
+    respond(null, { name: fakeVersion.version.name, payload: { data: fakeVersion.data } });
+  },
 };
 
 const servicePackageDefinition = protoLoader.loadSync(['./google/cloud/secretmanager/v1/service.proto'], {

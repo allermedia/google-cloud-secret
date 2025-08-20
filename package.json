@@ -1,7 +1,7 @@
 {
   "name": "@aller/google-cloud-secret",
   "description": "Concurrent update of google cloud secret",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./src/index.js",
@@ -73,5 +73,10 @@
     "lib",
     "src",
     "types/index.d*"
-  ]
+  ],
+  "c8": {
+    "exclude": [
+      "src/fake-server"
+    ]
+  }
 }
