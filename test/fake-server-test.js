@@ -3,7 +3,7 @@ import { randomInt } from 'node:crypto';
 import secretManager from '@google-cloud/secret-manager';
 import nock from 'nock';
 
-import { startServer } from './helpers/fake-server.js';
+import { startServer, RpcCodes } from './helpers/fake-server.js';
 
 describe('fake grpc server', () => {
   it('can be started and stopped', async () => {
@@ -72,6 +72,19 @@ describe('fake grpc server', () => {
 
       const [secret] = await client.getSecretVersion({ name: `projects/1234/secrets/${secretId}/versions/latest` });
       expect(secret).to.be.ok;
+    });
+
+    ['foo', 'projects/foo', 'projects/123a/secrets/bar'].forEach((name) => {
+      it(`getSecret with malformatted name (${name}) throws`, async () => {
+        try {
+          await client.getSecret({ name });
+        } catch (err) {
+          // eslint-disable-next-line no-var
+          var error = err;
+        }
+
+        expect(error.code).to.equal(RpcCodes.INVALID_ARGUMENT);
+      });
     });
   });
 });

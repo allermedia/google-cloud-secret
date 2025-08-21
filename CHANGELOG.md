@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.0.3 - 2025-08-21
+
+- fake secret server trows on invalid secret resource name
+- fake secret server accepts updating secret property to nothing
+
 ## v0.0.2 - 2025-08-20
 
 - add method to get latest secret data, returns actual secret

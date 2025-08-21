@@ -10,6 +10,8 @@ import { RpcCodes } from './rpc-codes.js';
 
 export { RpcCodes } from './rpc-codes.js';
 
+const validSecretNamePattern = /^projects\/\d+\/secrets\/[\w-]+$/;
+
 /** @type {Map<string, FakeSecretData>} */
 const db = new Map();
 
@@ -35,6 +37,10 @@ const exampleServer = {
 
     const name = path.join(payload.parent, 'secrets', payload.secretId);
 
+    if (!validSecretNamePattern.test(name)) {
+      return respond(new FakeRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
+    }
+
     if (db.has(name)) {
       return respond(new FakeRpcError(`${name} already exists`, RpcCodes.ALREADY_EXISTS));
     }
@@ -46,7 +52,7 @@ const exampleServer = {
       topics: [],
       labels: {},
       versionAliases: {},
-      annotations: { updated_at: 'null' },
+      annotations: {},
       tags: {},
       rotation: null,
       versionDestroyTtl: null,
@@ -74,11 +80,15 @@ const exampleServer = {
    * @param {CallableFunction} respond
    */
   GetSecret(req, respond) {
-    const payload = req.request;
+    const name = req.request.name;
+
+    if (!validSecretNamePattern.test(name)) {
+      return respond(new FakeRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
+    }
 
     let fakeSecret;
-    if (!(fakeSecret = db.get(payload.name))) {
-      return respond(new FakeRpcError(`Secret [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
+    if (!(fakeSecret = db.get(name))) {
+      return respond(new FakeRpcError(`Secret [${name}] not found.`, RpcCodes.NOT_FOUND));
     }
 
     respond(null, { ...fakeSecret.secret });
@@ -89,6 +99,10 @@ const exampleServer = {
    */
   AddSecretVersion(req, respond) {
     const payload = req.request;
+
+    if (!validSecretNamePattern.test(payload.parent)) {
+      return respond(new FakeRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
+    }
 
     const parentSecret = db.get(payload.parent);
 
@@ -327,10 +341,8 @@ const exampleServer = {
 
     if (payload.updateMask?.paths?.length) {
       for (const prop of payload.updateMask.paths) {
-        if (prop in payload.secret) {
-          // @ts-ignore
-          fakeSecret.secret[prop] = payload.secret[prop];
-        }
+        // @ts-ignore
+        fakeSecret.secret[prop] = payload.secret[prop];
       }
     }
 
