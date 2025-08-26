@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.0 - 2025-08-26
+
+- update README with IAM policy example
+
 ## v0.0.4 - 2025-08-22
 
 - the only version at the moment since all previous versions has disappeared from npm, we have seen alot in this business but this was new

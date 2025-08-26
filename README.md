@@ -5,6 +5,7 @@ Concurrent safe update of google cloud secret. No rocket science, just rely on s
 [![Build](https://github.com/allermedia/google-secret/actions/workflows/build.yaml/badge.svg)](https://github.com/allermedia/google-secret/actions/workflows/build.yaml)
 
 - [Api](#api)
+- [IAM policy](#iam-policy)
 - [Fake google secret manager server](#fake-google-secret-manager-server)
 
 ## Api
@@ -14,7 +15,7 @@ Concurrent safe update of google cloud secret. No rocket science, just rely on s
 **Arguments:**
 
 - `name`: secret resource name in format `projects/{project number}/secrets/{secret name}`
-- `clientOrClientOptions`: optional [`@google-cloud/secret-manager`](https://www.npmjs.com/package/@google-cloud/secret-manager) secret manager client or options to pass to secret manager client
+- `clientOrClientOptions`: optional [`@google-cloud/secret-manager`](https://www.npmjs.com/package/@google-cloud/secret-manager) client or options to pass to secret manager client
 - `gracePeriodMs`: optional lock grace period in milliseconds, continue if secret is locked beyond grace period, defaults to 60000
 
 **Properties**:
@@ -71,6 +72,54 @@ Get latest version secret data.
 - `name`: secret version name
 - `payload`:
   - `data`: buffer with actual secret
+
+## IAM Policy
+
+The service account for cloud run or function needs access to update the secret and add versions.
+
+Terraform example:
+
+```t
+# Define an IAM policy to allow accounts to administer secret
+data "google_iam_policy" "secret_admin_policy" {
+  binding {
+    role = "roles/secretmanager.admin"
+    members = [
+      "serviceAccount:${google_service_account.default.email}",
+      "serviceAccount:${google_service_account.functions.email}",
+    ]
+  }
+}
+
+# Create secret
+resource "google_secret_manager_secret" "rotated_by_app_secret" {
+  secret_id           = "app-rotating-token"
+  version_destroy_ttl = "86400s"
+  replication {
+    auto {}
+  }
+}
+
+# Add IAM policy to secret
+resource "google_secret_manager_secret_iam_policy" "rotated_by_app_secret_policy" {
+  secret_id   = google_secret_manager_secret.rotated_by_app_secret.secret_id
+  policy_data = data.google_iam_policy.secret_admin_policy.policy_data
+}
+
+# Add inital version to be able to address it as latest
+resource "google_secret_manager_secret_version" "rotated_by_app_secret_first_version" {
+  secret          = google_secret_manager_secret.rotated_by_app_secret.id
+  secret_data     = "dummy-data"
+  deletion_policy = "DISABLE"
+
+  # Ignore if the secret version is disabled
+  lifecycle {
+    ignore_changes = [
+      enabled,
+    ]
+  }
+}
+```
 
 ## Testing
 
