@@ -7,20 +7,23 @@ Concurrent safe update of google cloud secret. No rocket science, just rely on s
 - [Api](#api)
 - [IAM policy](#iam-policy)
 - [Fake google secret manager server](#fake-google-secret-manager-server)
+- [Debug](#debug)
 
 ## Api
 
-### `new ConcurrentSecret(name[, clientOrClientOptions, gracePeriodMs])`
+### `new ConcurrentSecret(name[, clientOrClientOptions, options])`
 
 **Arguments:**
 
 - `name`: secret resource name in format `projects/{project number}/secrets/{secret name}`
 - `clientOrClientOptions`: optional [`@google-cloud/secret-manager`](https://www.npmjs.com/package/@google-cloud/secret-manager) client or options to pass to secret manager client
-- `gracePeriodMs`: optional lock grace period in milliseconds, continue if secret is locked beyond grace period, defaults to 60000
+- `options`: optional options
+  - `gracePeriodMs`: optional lock grace period in milliseconds, continue if secret is locked beyond grace period, defaults to 60000
+  - [`callOptions`](#call-options): optional call options as object or function to pass on update requests
 
 **Properties**:
 
-- `client`: [`@google-cloud/secret-manager`](https://www.npmjs.com/package/@google-cloud/secret-manager) secret manager client
+- `client`: [`@google-cloud/secret-manager`](https://www.npmjs.com/package/@google-cloud/secret-manager) client
   can be closed if created with client options
 
 #### `concurrentSecret.optimisticUpdate(fn, ...args)`
@@ -148,12 +151,6 @@ npm i
 npm t
 ```
 
-### Run with gRPC DEBUG
-
-```sh
-GRPC_TRACE=all GRPC_VERBOSITY=DEBUG mocha -b
-```
-
 ### Fake google secret manager server
 
 The package ships with a fake google secret manager gRPC server to facilitate testing your library.
@@ -179,7 +176,7 @@ describe('concurrent secret', () => {
         return body.target_audience ? new URL(body.target_audience) : true;
       })
       .query(true)
-      .reply(200, { id_token: 'google-auth-id-token' })
+      .reply(200, { id_token: 'google-auth-id-token', access_token: 'google-auth-access-token' })
       .persist();
   });
   after(nock.cleanAll);
@@ -222,4 +219,40 @@ describe('concurrent secret', () => {
     });
   });
 });
+```
+
+## Call options
+
+[Gax](https://github.com/googleapis/gax-nodejs) call options that can be passed as options object or as a function returning the same. Used in update secret and add secret version calls.
+
+How to set grpc headers:
+
+```javascript
+import { randomBytes } from 'node:crypto';
+
+import { ConcurrentSecret } from '@aller/google-cloud-secret';
+
+const concurrentSecret = new ConcurrentSecret('projects/1234567/secrets/my-concurrent-secret-2', null, {
+  callOptions() {
+    return {
+      otherArgs: {
+        headers: {
+          traceparent: `00-${randomBytes(16).toString('hex')}-${randomBytes(8).toString('hex')}-00`,
+        },
+      },
+    };
+  },
+});
+```
+
+We have attempted to pass opentelemetry tracing header `traceparent` as well as the legacy `x-cloud-trace-context` expecting tracing to be represented in the secret audit log. To no avail. Both tracing headers are ignored. But with more extensive testing it may work...
+
+## Debug
+
+Run with environment parameter `DEBUG=aller:google-cloud-secret*`
+
+### Run with gRPC DEBUG
+
+```sh
+GRPC_TRACE=all GRPC_VERBOSITY=DEBUG mocha -b
 ```

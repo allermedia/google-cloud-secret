@@ -2,6 +2,14 @@
 
 ## v0.1.0 - 2025-08-26
 
+### Breaking
+
+- change signature to `ConcurrentSecret(name[, client, options])` from `ConcurrentSecret(name[, client, gracePeriodMs])`. Grace period is moved to new fancy options object
+
+### Fixes
+
+- accept gax callOptions option as either object or function
+- implement some [debug](https://www.npmjs.com/package/debug) logging with `DEBUG=aller:google-cloud-secret*`
 - update README with IAM policy example
 
 ## v0.0.4 - 2025-08-22

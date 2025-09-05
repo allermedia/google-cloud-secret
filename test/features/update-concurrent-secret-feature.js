@@ -15,7 +15,7 @@ Feature('update concurrent secret', () => {
         return body.target_audience ? new URL(body.target_audience) : true;
       })
       .query(true)
-      .reply(200, { id_token: 'google-auth-id-token' })
+      .reply(200, { id_token: 'google-auth-id-token', access_token: 'google-auth-access-token' })
       .persist();
   });
   after(nock.cleanAll);
@@ -645,7 +645,7 @@ Feature('update concurrent secret', () => {
     let concurrentSecret2;
     let result;
     When('another instance attempts to update secret', async () => {
-      concurrentSecret2 = new ConcurrentSecret(secretName, client, 60000);
+      concurrentSecret2 = new ConcurrentSecret(secretName, client, { gracePeriodMs: 30000 });
 
       result = await concurrentSecret2
         .optimisticUpdate(() => {
@@ -663,11 +663,11 @@ Feature('update concurrent secret', () => {
     });
 
     Given('a grace period has passed', () => {
-      ck.travel(new Date(Date.now() + 600001));
+      ck.travel(new Date(Date.now() + 30001));
     });
 
     When('another instance makes a new attempt to update secret', async () => {
-      concurrentSecret2 = new ConcurrentSecret(secretName, client);
+      concurrentSecret2 = new ConcurrentSecret(secretName, client, { gracePeriodMs: 30000 });
 
       result = await concurrentSecret2
         .optimisticUpdate(() => {

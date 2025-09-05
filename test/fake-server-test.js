@@ -1,9 +1,12 @@
 import { randomInt } from 'node:crypto';
 
 import secretManager from '@google-cloud/secret-manager';
+import Debug from 'debug';
 import nock from 'nock';
 
 import { startServer, RpcCodes } from './helpers/fake-server.js';
+
+const debug = Debug('test:aller:google-cloud-secret');
 
 describe('fake grpc server', () => {
   it('can be started and stopped', async () => {
@@ -19,11 +22,9 @@ describe('fake grpc server', () => {
   describe('api', () => {
     before(() => {
       nock('https://oauth2.googleapis.com')
-        .post('/token', (body) => {
-          return body.target_audience ? new URL(body.target_audience) : true;
-        })
+        .post('/token')
         .query(true)
-        .reply(200, { id_token: 'google-auth-id-token' })
+        .reply(200, { id_token: 'google-auth-id-token', access_token: 'google-auth-access-token' })
         .persist();
     });
     after(nock.cleanAll);
@@ -33,11 +34,18 @@ describe('fake grpc server', () => {
     /** @type {import('@google-cloud/secret-manager').SecretManagerServiceClient} */
     let client;
     before('grpc server', async () => {
+      debug('initiate server');
+
       server = await startServer();
+
+      debug('server initiated');
+
       client = new secretManager.v1.SecretManagerServiceClient({
         apiEndpoint: 'localhost',
         port: server.origin.port,
       });
+
+      debug('client created');
     });
     after(async () => {
       client = await client.close();

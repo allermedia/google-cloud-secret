@@ -8,9 +8,10 @@ declare module '@aller/google-cloud-secret' {
 	export default class ConcurrentSecret_1 {
 		/**
 		 * @param name secret resource name, e.g. `projects/1234/secrets/concurrent-test-secret`
-		 * @param gracePeriodMs lock grace period in milliseconds, continue if secret is locked beyond grace period
+		 * @param clientOptions Secret Manager client instance or the options for a new one
+		 * @param options options
 		 */
-		constructor(name: string, clientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, gracePeriodMs?: number);
+		constructor(name: string, clientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, options?: concurrentSecretOptions);
 		name: string;
 		latestVersionName: string;
 		client: import("@google-cloud/secret-manager/build/src/v1").SecretManagerServiceClient;
@@ -20,12 +21,8 @@ declare module '@aller/google-cloud-secret' {
 		pendingSecret: Promise<import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret> | undefined;
 		
 		secretVersion: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecretVersion | undefined;
-		/** @type {number} [gracePeriodMs] Lock grace period in milliseconds, continue if secret is locked beyond grace period */
-		gracePeriodMs: number;
-		/**
-		 * Prepare optimistic update
-		 * */
-		_prepare(): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecret>;
+		/** @type {concurrentSecretOptions} [gracePeriodMs] Lock grace period in milliseconds, continue if secret is locked beyond grace period */
+		options: concurrentSecretOptions;
 		/**
 		 * Get latest version
 		 * 
@@ -50,7 +47,29 @@ declare module '@aller/google-cloud-secret' {
 		 * Unlock secret
 		 */
 		unlock(): Promise<void>;
+		/**
+		 * @internal Prepare optimistic update
+		 */
+		_prepare(): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecret>;
+		/**
+		 * @internal Get gax call options
+		 * */
+		_updateSecret(secret: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret): Promise<[import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecret, import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.IUpdateSecretRequest, {}]>;
+		/**
+		 * @internal Get gax call options
+		 * */
+		_getCallOptions(): import("google-gax").CallOptions;
 	}
+	export type concurrentSecretOptions = {
+		/**
+		 * lock grace period in milliseconds, continue if secret is locked beyond grace period, default is 60000ms
+		 */
+		gracePeriodMs?: number;
+		/**
+		 * optional function to pass other args to pass to each request, tracing for instance
+		 */
+		callOptions?: () => import("google-gax").CallOptions | import("google-gax").CallOptions;
+	};
 
 	export {};
 }
@@ -66,6 +85,11 @@ declare module '@aller/google-cloud-secret/fake-server/fake-secret-manager-serve
 	 * Reset all fake secrets and versions
 	 */
 	export function reset(): void;
+	/**
+	 * Get fake secret
+	 * @param name secret name
+	 */
+	export function getSecret(name: string): FakeSecretData;
 	export type startServerOptions = {
 		/**
 		 * secret manages sends credentials, hence certs need to be passed
@@ -95,6 +119,10 @@ declare module '@aller/google-cloud-secret/fake-server/fake-secret-manager-serve
 		 * secret versions
 		 */
 		versions: FakeSecretVersion[];
+		/**
+		 * last request metadata
+		 */
+		metadata: import("@grpc/grpc-js").Metadata;
 	};
 	export namespace RpcCodes {
 		let OK: number;

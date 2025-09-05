@@ -14,7 +14,7 @@ Feature('get secret data', () => {
         return body.target_audience ? new URL(body.target_audience) : true;
       })
       .query(true)
-      .reply(200, { id_token: 'google-auth-id-token' })
+      .reply(200, { id_token: 'google-auth-id-token', access_token: 'google-auth-access-token' })
       .persist();
   });
   after(nock.cleanAll);

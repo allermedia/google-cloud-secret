@@ -4,11 +4,14 @@ import path from 'node:path/posix';
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 // import { ReflectionService } from '@grpc/reflection';
+import Debug from 'debug';
 import Long from 'long';
 
 import { RpcCodes } from './rpc-codes.js';
 
 export { RpcCodes } from './rpc-codes.js';
+
+const debug = Debug('aller:google-cloud-secret:fake-server');
 
 const validSecretNamePattern = /^projects\/\d+\/secrets\/[\w-]+$/;
 
@@ -29,7 +32,7 @@ class FakeRpcError extends Error {
 // Fake your secret manager implementation
 const exampleServer = {
   /**
-   * @param {import('../../types/types.js').AddSecretRequest} req
+   * @param {import('types').AddSecretRequest} req
    * @param {CallableFunction} respond
    */
   CreateSecret(req, respond) {
@@ -44,6 +47,8 @@ const exampleServer = {
     if (db.has(name)) {
       return respond(new FakeRpcError(`${name} already exists`, RpcCodes.ALREADY_EXISTS));
     }
+
+    debug('create secret %s', name);
 
     const now = new Date();
 
@@ -71,12 +76,14 @@ const exampleServer = {
       },
     };
 
-    db.set(name, { secret, versions: [] });
+    db.set(name, { metadata: req.metadata, secret, versions: [] });
+
+    debug('secret %s created', name);
 
     respond(null, secret);
   },
   /**
-   * @param {import('../../types/types.js').GetSecretRequest} req
+   * @param {import('types').GetSecretRequest} req
    * @param {CallableFunction} respond
    */
   GetSecret(req, respond) {
@@ -94,7 +101,7 @@ const exampleServer = {
     respond(null, { ...fakeSecret.secret });
   },
   /**
-   * @param {import('../../types/types.js').AddSecretVersionRequest} req
+   * @param {import('types').AddSecretVersionRequest} req
    * @param {CallableFunction} respond
    */
   AddSecretVersion(req, respond) {
@@ -111,6 +118,8 @@ const exampleServer = {
     }
 
     const now = new Date();
+
+    debug('add secret version to %s', payload.parent, req.metadata.getMap());
 
     /** @type {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecretVersion} */
     const fakeVersion = {
@@ -132,7 +141,7 @@ const exampleServer = {
   },
   /**
    * Disable version, the method is idempotent but etag is updated
-   * @param {import('../../types/types.js').DisableSecretVersionRequest} req
+   * @param {import('types').DisableSecretVersionRequest} req
    * @param {CallableFunction} respond
    */
   DisableSecretVersion(req, respond) {
@@ -164,7 +173,7 @@ const exampleServer = {
   },
   /**
    * Enable version, the method is idempotent but etag is updated
-   * @param {import('../../types/types.js').EnableSecretVersionRequest} req
+   * @param {import('types').EnableSecretVersionRequest} req
    * @param {CallableFunction} respond
    */
   EnableSecretVersion(req, respond) {
@@ -212,6 +221,8 @@ const exampleServer = {
     if (!(fakeSecret = db.get(parent))) {
       return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
     }
+
+    fakeSecret.metadata = req.metadata;
 
     const fakeVersions = fakeSecret.versions;
     const fakeVersion = version === 'latest' ? fakeVersions[0] : fakeVersions.find((v) => v.version.name === payload.name);
@@ -290,6 +301,7 @@ const exampleServer = {
     const now = new Date();
 
     fakeVersion.version.etag = `"${randomBytes(7).toString('hex')}"`;
+    fakeSecret.metadata = req.metadata;
 
     if (fakeSecret.secret.versionDestroyTtl) {
       fakeVersion.version.state = 'DISABLED';
@@ -318,7 +330,7 @@ const exampleServer = {
   },
   /**
    * Enable version, the method is idempotent but etag is updated
-   * @param {import('../../types/types.js').UpdatesSecretRequest} req
+   * @param {import('types').UpdatesSecretRequest} req
    * @param {CallableFunction} respond
    */
   UpdateSecret(req, respond) {
@@ -346,13 +358,16 @@ const exampleServer = {
       }
     }
 
+    debug('secret %s was updated', name, req.metadata.getMap());
+
+    fakeSecret.metadata = req.metadata;
     fakeSecret.secret.etag = `"${randomBytes(7).toString('hex')}"`;
 
     respond(null, fakeSecret.secret);
   },
   /**
    * Access secret version data
-   * @param {import('../../types/types.js').AccessSecretVersionRequest} req
+   * @param {import('types').AccessSecretVersionRequest} req
    * @param {CallableFunction} respond
    */
   AccessSecretVersion(req, respond) {
@@ -394,14 +409,19 @@ const serviceProto = grpc.loadPackageDefinition(servicePackageDefinition);
  * @returns {Promise<import('@grpc/grpc-js').Server>} Fake gRPC Google Secret Manager server
  */
 export async function startServer(options) {
+  // const debug = Debug('aller:google-cloud-secret:fake-server');
+
   const { port, cert } = {
     ...options,
-    port: options.port || Number(`50${randomInt(100).toString().padStart(3, '0')}`),
+    port: options.port || Number(`5${randomInt(1000).toString().padStart(4, '0')}`),
   };
+
+  debug('start server at port %d', port);
   const server = new grpc.Server();
 
   // @ts-ignore
   server.addService(serviceProto.google.cloud.secretmanager.v1.SecretManagerService.service, exampleServer);
+  debug('added service fake implementation');
 
   //// import { ReflectionService } from '@grpc/reflection';
   // const reflection = new ReflectionService(servicePackageDefinition);
@@ -412,6 +432,7 @@ export async function startServer(options) {
       if (err) {
         return reject(err);
       }
+      debug('service started at %d', port);
       resolve(port);
     });
   });
@@ -435,6 +456,14 @@ export function reset() {
   db.clear();
 }
 
+/**
+ * Get fake secret
+ * @param {string} name secret name
+ */
+export function getSecret(name) {
+  return db.get(name);
+}
+
 export default startServer;
 
 /**
@@ -449,4 +478,5 @@ export default startServer;
  * @typedef {object} FakeSecretData
  * @property {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecret} secret Secret
  * @property {FakeSecretVersion[]} versions secret versions
+ * @property {import('@grpc/grpc-js').Metadata} metadata last request metadata
  */
