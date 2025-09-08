@@ -6,3 +6,10 @@ process.env.NODE_ENV = 'test';
 process.env.GOOGLE_APPLICATION_CREDENTIALS = join(process.cwd(), 'test/helpers/fake-google-application-credentials.json');
 
 nock.enableNetConnect(/127\.0\.0\.1|localhost/);
+
+// LRUCache hack to enable Date manipulation
+globalThis.performance = {
+  now() {
+    return Date.now();
+  },
+};

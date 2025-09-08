@@ -2,6 +2,7 @@ import path from 'node:path/posix';
 
 import secretManager from '@google-cloud/secret-manager';
 import Debug from 'debug';
+import { LRUCache } from 'lru-cache';
 
 const debug = Debug('aller:google-cloud-secret');
 
@@ -211,8 +212,100 @@ export class ConcurrentSecret {
 
 export default ConcurrentSecret;
 
+export class CachedSecret extends ConcurrentSecret {
+  /**
+   * @param {string} name
+   * @param {string} initialValue
+   * @param {(...args: any) => Promise<string|Buffer>} [fetchMethod] use this method to fetch new secret value
+   * @param {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [clientOptions]
+   * @param {concurrentSecretOptions} [options]
+   */
+  constructor(name, initialValue, fetchMethod, clientOptions, options) {
+    super(name, clientOptions, options);
+    this.value = initialValue;
+    /** @type {(...args: any) => Promise<string|Buffer>} */
+    this.fetchMethod = fetchMethod;
+  }
+
+  /**
+   * Use fetchMethod to get new secret value, missing method fetches latest version data
+   * @param  {...any} args
+   * @returns {Promise<string>}
+   */
+  async update(...args) {
+    if (!this.fetchMethod || !this.value) {
+      const secretData = await this.getLatestData();
+      this.value = secretData.payload.data?.toString();
+    } else {
+      this.value = (await this.optimisticUpdate(this.fetchMethod, ...args))?.toString();
+    }
+
+    return this.value;
+  }
+}
+
+export class SecretsCache {
+  /**
+   * @param {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [clientOptions] Secret Manager client instance or the options for a new one
+   * @param {Omit<LRUCache.Options<string, CachedSecret, any>,'fetchMethod'>} [cacheOptions] LRU Cache options
+   */
+  constructor(clientOptions, cacheOptions) {
+    /** @type {import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} */
+    const client = (this.client =
+      clientOptions instanceof secretManager.v1.SecretManagerServiceClient
+        ? clientOptions
+        : new secretManager.v1.SecretManagerServiceClient(clientOptions));
+
+    this.cache = new LRUCache({
+      max: 500,
+      noDeleteOnFetchRejection: true,
+      ...cacheOptions,
+      async fetchMethod(key, staleValue, fetcherOptions) {
+        if (!staleValue) return;
+        const updatedValue = await staleValue.update(fetcherOptions);
+        return new CachedSecret(key, updatedValue, staleValue.fetchMethod, client, staleValue.options);
+      },
+    });
+  }
+  /**
+   * Get cached secret
+   * @param {string} name
+   */
+  get(name) {
+    return this.cache.fetch(name);
+  }
+  /**
+   * Set cached secret
+   * @param {string} name
+   * @param {string} [initialValue] initial value
+   * @param {(options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string|Buffer>} [updateMethod] function to use when to update secret with new value, if omitted return latest secret version data
+   * @param {concurrentSecretOptions & cachedSecretOptions} [options] cached secret options, plus ttl which is passed to underlying cache
+   */
+  set(name, initialValue, updateMethod, options) {
+    this.cache.set(name, new CachedSecret(name, initialValue, updateMethod, this.client, options), { ttl: options?.ttl });
+    if (!initialValue) this.cache.fetch(name, { forceRefresh: true });
+  }
+  /**
+   * Update secret and return cached secret with new value
+   * @param {string} name
+   */
+  update(name) {
+    return this.cache.fetch(name, { forceRefresh: true });
+  }
+  /**
+   * Get cached secret remaining ttl
+   * @param {string} name
+   */
+  getRemainingTTL(name) {
+    return this.cache.getRemainingTTL(name);
+  }
+}
+
 /**
  * @typedef {object} concurrentSecretOptions
  * @property {number} [gracePeriodMs] lock grace period in milliseconds, continue if secret is locked beyond grace period, default is 60000ms
  * @property {()=>import('google-gax').CallOptions|import('google-gax').CallOptions} [callOptions] optional function to pass other args to pass to each request, tracing for instance
+ *
+ * @typedef {object} cachedSecretOptions
+ * @property {number} [ttl] Time to live
  */

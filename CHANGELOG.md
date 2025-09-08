@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.1.1 - 2025-09-08
+
+- introduce rudimentary secrets cache with `new SecretsCache(client)`
+- update README with IAM policy example that actually works
+
 ## v0.1.0 - 2025-08-26
 
 ### Breaking

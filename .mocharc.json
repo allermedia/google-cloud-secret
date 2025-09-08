@@ -4,5 +4,5 @@
   "recursive": true,
   "require": ["chai/register-expect.js", "./test/helpers/setup.js"],
   "ui": "mocha-cakes-2",
-  "node-option": ["use-system-ca"]
+  "node-option": ["use-system-ca", "no-warnings"]
 }
