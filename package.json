@@ -60,6 +60,7 @@
     "eslint": "^9.33.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsonc": "^2.20.1",
+    "google-auth-library": "10.3.1",
     "lru-cache": "^11.2.1",
     "mocha": "^11.7.1",
     "mocha-cakes-2": "^3.3.0",
