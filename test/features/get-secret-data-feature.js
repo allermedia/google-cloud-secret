@@ -1,10 +1,10 @@
 import { randomInt } from 'node:crypto';
 import path from 'node:path/posix';
 
+import { ConcurrentSecret } from '@aller/google-cloud-secret';
 import secretManager from '@google-cloud/secret-manager';
 import nock from 'nock';
 
-import { ConcurrentSecret } from '../../src/index.js';
 import { startServer, reset } from '../helpers/fake-server.js';
 
 Feature('get secret data', () => {

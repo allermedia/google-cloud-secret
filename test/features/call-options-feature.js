@@ -1,11 +1,11 @@
 import { randomInt } from 'node:crypto';
 import path from 'node:path/posix';
 
+import { ConcurrentSecret } from '@aller/google-cloud-secret';
 import secretManager from '@google-cloud/secret-manager';
 import * as ck from 'chronokinesis';
 import nock from 'nock';
 
-import { ConcurrentSecret } from '../../src/index.js';
 import { startServer, reset, getSecret } from '../helpers/fake-server.js';
 
 Feature('call options option', () => {

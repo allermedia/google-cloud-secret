@@ -4,6 +4,8 @@ import secretManager from '@google-cloud/secret-manager';
 import Debug from 'debug';
 import { LRUCache } from 'lru-cache';
 
+import { RpcCodes } from './fake-server/rpc-codes.js';
+
 const debug = Debug('aller:google-cloud-secret');
 
 export class ConcurrentSecretError extends Error {
@@ -21,16 +23,16 @@ export class ConcurrentSecretError extends Error {
 export class ConcurrentSecret {
   /**
    * @param {string} name secret resource name, e.g. `projects/1234/secrets/concurrent-test-secret`
-   * @param {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [clientOptions] Secret Manager client instance or the options for a new one
+   * @param {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [clientOrClientOptions] Secret Manager client instance or the options for a new one
    * @param {concurrentSecretOptions} [options] options
    */
-  constructor(name, clientOptions, options) {
+  constructor(name, clientOrClientOptions, options) {
     this.name = name;
     this.latestVersionName = path.join(name, '/versions/latest');
     this.client =
-      clientOptions instanceof secretManager.v1.SecretManagerServiceClient
-        ? clientOptions
-        : new secretManager.v1.SecretManagerServiceClient(clientOptions);
+      clientOrClientOptions instanceof secretManager.v1.SecretManagerServiceClient
+        ? clientOrClientOptions
+        : new secretManager.v1.SecretManagerServiceClient(clientOrClientOptions);
 
     /** @type {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecret | undefined} */
     this.secret = undefined;
@@ -38,8 +40,11 @@ export class ConcurrentSecret {
     /** @type {Promise<import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecret> | undefined} */
     this.pendingSecret = undefined;
 
-    /** @type {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecretVersion | undefined} */
-    this.secretVersion = undefined;
+    /**
+     * Updated version name
+     * @type {string|undefined}
+     */
+    this.updatedVersionName = undefined;
 
     /** @type {concurrentSecretOptions} [gracePeriodMs] Lock grace period in milliseconds, continue if secret is locked beyond grace period */
     this.options = { gracePeriodMs: 60000, ...options };
@@ -54,7 +59,7 @@ export class ConcurrentSecret {
       return version;
     } catch (err) {
       // @ts-ignore
-      if (!throwOnNotFound && err.code === 5) {
+      if (!throwOnNotFound && err.code === RpcCodes.NOT_FOUND) {
         return null;
       }
 
@@ -63,10 +68,21 @@ export class ConcurrentSecret {
   }
   /**
    * Get latest version secret data
+   * @param {boolean} [throwOnNotFound]
    */
-  async getLatestData() {
-    const [data] = await this.client.accessSecretVersion({ name: this.latestVersionName }, this._getCallOptions());
-    return data;
+  async getLatestData(throwOnNotFound) {
+    try {
+      const [data] = await this.client.accessSecretVersion({ name: this.latestVersionName }, this._getCallOptions());
+      return data;
+    } catch (err) {
+      // @ts-ignore
+      if (!throwOnNotFound && err.code === RpcCodes.NOT_FOUND) {
+        return null;
+      }
+      debug('failed to get latest data for %s', this.name, err);
+
+      throw err;
+    }
   }
   /**
    * @param {(...args: any) => Promise<string | Buffer>} fn get new secret function, call this function if a lock was acheieved
@@ -82,13 +98,15 @@ export class ConcurrentSecret {
 
       const latestVersion = await this.getLatestVersion();
 
-      await this.client.addSecretVersion(
+      const [newVersion] = await this.client.addSecretVersion(
         {
           parent: secret.name,
           payload: { data: Buffer.from(secretData) },
         },
         this._getCallOptions()
       );
+
+      this.updatedVersionName = newVersion.name;
 
       if (latestVersion && latestVersion.state !== 'DESTROYED' && !latestVersion.scheduledDestroyTime) {
         await this.client.destroySecretVersion({ name: latestVersion.name });
@@ -216,15 +234,25 @@ export class CachedSecret extends ConcurrentSecret {
   /**
    * @param {string} name
    * @param {string} initialValue
-   * @param {(...args: any) => Promise<string|Buffer>} [fetchMethod] use this method to fetch new secret value
-   * @param {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [clientOptions]
-   * @param {concurrentSecretOptions} [options]
+   * @param {cachedSecretOptions & concurrentSecretOptions} options
    */
-  constructor(name, initialValue, fetchMethod, clientOptions, options) {
-    super(name, clientOptions, options);
+  constructor(name, initialValue, options) {
+    super(name, options?.client, options);
+
+    /**
+     * Secret value
+     * @type {string}
+     */
     this.value = initialValue;
+
     /** @type {(...args: any) => Promise<string|Buffer>} */
-    this.fetchMethod = fetchMethod;
+    this.fetchMethod = options?.fetchMethod;
+
+    /**
+     * Current version name
+     * @type {string|undefined}
+     */
+    this.versionName = options?.versionName;
   }
 
   /**
@@ -234,36 +262,92 @@ export class CachedSecret extends ConcurrentSecret {
    */
   async update(...args) {
     if (!this.fetchMethod || !this.value) {
-      const secretData = await this.getLatestData();
-      this.value = secretData.payload.data?.toString();
-    } else {
-      this.value = (await this.optimisticUpdate(this.fetchMethod, ...args))?.toString();
-    }
+      const secretData = await this.getLatestData(!this.fetchMethod);
+      if (!secretData && this.fetchMethod) {
+        return this._updateCachedSecret(...args);
+      }
 
+      this.versionName = secretData.name;
+      this.value = secretData.payload.data?.toString();
+
+      return this.value;
+    } else if (!this.versionName) {
+      debug('cached secret %s lacks secret version information', this.name);
+      const latestVersionData = await this.getLatestData();
+      if (!latestVersionData) {
+        debug('%s lacks versions, updating secret', this.name);
+        return this._updateCachedSecret(...args);
+      }
+
+      this.versionName = latestVersionData.name;
+
+      debug('%s last version is %s', this.name, latestVersionData.name);
+
+      if (Buffer.from(this.value).compare(Buffer.from(latestVersionData.payload.data)) !== 0) {
+        debug('latest version differs from cached value, using latest secret value');
+        this.value = latestVersionData.payload.data.toString();
+        return this.value;
+      }
+
+      return this._updateCachedSecret(...args);
+    } else {
+      debug('cached secret %s has version %s, checking for new version before update', this.name, this.versionName);
+
+      const latestVersionData = await this.getLatestData();
+
+      if (latestVersionData.name > this.versionName) {
+        debug('a more recent version %s is present, using latest secret value', latestVersionData.name);
+        this.versionName = latestVersionData.name;
+        this.value = latestVersionData.payload.data.toString();
+        return this.value;
+      }
+
+      return this._updateCachedSecret(...args);
+    }
+  }
+
+  /**
+   * Update cached secret value and version name
+   * @param  {...any} args
+   * @returns {Promise<string>}
+   */
+  async _updateCachedSecret(...args) {
+    this.value = (await this.optimisticUpdate(this.fetchMethod, ...args))?.toString();
+    this.versionName = this.updatedVersionName;
     return this.value;
+  }
+
+  /**
+   * Clone current secret with new value
+   * @param {string|Buffer} newValue
+   * @returns {CachedSecret}
+   */
+  clone(newValue) {
+    // @ts-ignore
+    return new this.constructor(this.name, newValue, { ...this.options, versionName: this.versionName });
   }
 }
 
 export class SecretsCache {
   /**
-   * @param {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [clientOptions] Secret Manager client instance or the options for a new one
+   * @param {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [clientOrClientOptions] Secret Manager client instance or the options for a new one
    * @param {Omit<LRUCache.Options<string, CachedSecret, any>,'fetchMethod'>} [cacheOptions] LRU Cache options
    */
-  constructor(clientOptions, cacheOptions) {
+  constructor(clientOrClientOptions, cacheOptions) {
     /** @type {import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} */
-    const client = (this.client =
-      clientOptions instanceof secretManager.v1.SecretManagerServiceClient
-        ? clientOptions
-        : new secretManager.v1.SecretManagerServiceClient(clientOptions));
+    this.client =
+      clientOrClientOptions instanceof secretManager.v1.SecretManagerServiceClient
+        ? clientOrClientOptions
+        : new secretManager.v1.SecretManagerServiceClient(clientOrClientOptions);
 
     this.cache = new LRUCache({
       max: 500,
       noDeleteOnFetchRejection: true,
       ...cacheOptions,
-      async fetchMethod(key, staleValue, fetcherOptions) {
+      async fetchMethod(_key, staleValue, fetcherOptions) {
         if (!staleValue) return;
         const updatedValue = await staleValue.update(fetcherOptions);
-        return new CachedSecret(key, updatedValue, staleValue.fetchMethod, client, staleValue.options);
+        return staleValue.clone(updatedValue);
       },
     });
   }
@@ -278,11 +362,11 @@ export class SecretsCache {
    * Set cached secret
    * @param {string} name
    * @param {string} [initialValue] initial value
-   * @param {(options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string|Buffer>} [updateMethod] function to use when to update secret with new value, if omitted return latest secret version data
-   * @param {concurrentSecretOptions & cachedSecretOptions} [options] cached secret options, plus ttl which is passed to underlying cache
+   * @param {(options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string|Buffer>} [fetchMethod] function to use when to update secret with new value, if omitted return latest secret version data
+   * @param {concurrentSecretOptions & cachedSetSecretOptions} [options] cached secret options, plus ttl which is passed to underlying cache
    */
-  set(name, initialValue, updateMethod, options) {
-    this.cache.set(name, new CachedSecret(name, initialValue, updateMethod, this.client, options), { ttl: options?.ttl });
+  set(name, initialValue, fetchMethod, options) {
+    this.cache.set(name, new CachedSecret(name, initialValue, { fetchMethod, client: this.client, ...options }), { ttl: options?.ttl });
     if (!initialValue) this.cache.fetch(name, { forceRefresh: true });
   }
   /**
@@ -306,6 +390,11 @@ export class SecretsCache {
  * @property {number} [gracePeriodMs] lock grace period in milliseconds, continue if secret is locked beyond grace period, default is 60000ms
  * @property {()=>import('google-gax').CallOptions|import('google-gax').CallOptions} [callOptions] optional function to pass other args to pass to each request, tracing for instance
  *
- * @typedef {object} cachedSecretOptions
+ * @typedef {object} cachedSetSecretOptions
  * @property {number} [ttl] Time to live
+ *
+ * @typedef {object} cachedSecretOptions
+ * @property {(...args: any) => Promise<string|Buffer>} [fetchMethod] use this method to fetch new secret value
+ * @property {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [client] Secret Manager client instance or the options for a new one
+ * @property {string} [versionName] version name
  */

@@ -9,30 +9,33 @@ declare module '@aller/google-cloud-secret' {
 	export default class ConcurrentSecret_1 {
 		/**
 		 * @param name secret resource name, e.g. `projects/1234/secrets/concurrent-test-secret`
-		 * @param clientOptions Secret Manager client instance or the options for a new one
+		 * @param clientOrClientOptions Secret Manager client instance or the options for a new one
 		 * @param options options
 		 */
-		constructor(name: string, clientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, options?: concurrentSecretOptions);
+		constructor(name: string, clientOrClientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, options?: concurrentSecretOptions);
 		name: string;
 		latestVersionName: string;
-		client: import("@google-cloud/secret-manager/build/src/v1").SecretManagerServiceClient;
+		client: import("@google-cloud/secret-manager/build/src/v1/secret_manager_service_client.js").SecretManagerServiceClient;
 		
 		secret: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret | undefined;
 		
 		pendingSecret: Promise<import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret> | undefined;
-		
-		secretVersion: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecretVersion | undefined;
+		/**
+		 * Updated version name
+		 * */
+		updatedVersionName: string | undefined;
 		/** @type {concurrentSecretOptions} [gracePeriodMs] Lock grace period in milliseconds, continue if secret is locked beyond grace period */
 		options: concurrentSecretOptions;
 		/**
 		 * Get latest version
 		 * 
 		 */
-		getLatestVersion(throwOnNotFound?: boolean): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecretVersion>;
+		getLatestVersion(throwOnNotFound?: boolean): Promise<import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.ISecretVersion>;
 		/**
 		 * Get latest version secret data
+		 * 
 		 */
-		getLatestData(): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.IAccessSecretVersionResponse>;
+		getLatestData(throwOnNotFound?: boolean): Promise<import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.IAccessSecretVersionResponse>;
 		/**
 		 * @param fn get new secret function, call this function if a lock was acheieved
 		 * @param  args optional arguments to function
@@ -43,7 +46,7 @@ declare module '@aller/google-cloud-secret' {
 		 * Lock secret by updating it so that it rotates etag
 		 * @returns locked secret
 		 */
-		lock(): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecret>;
+		lock(): Promise<import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.ISecret>;
 		/**
 		 * Unlock secret
 		 */
@@ -51,36 +54,49 @@ declare module '@aller/google-cloud-secret' {
 		/**
 		 * @internal Prepare optimistic update
 		 */
-		_prepare(): Promise<import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecret>;
+		_prepare(): Promise<import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.ISecret>;
 		/**
 		 * @internal Get gax call options
 		 * */
-		_updateSecret(secret: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret): Promise<[import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.ISecret, import("@google-cloud/secret-manager/build/protos/protos").google.cloud.secretmanager.v1.IUpdateSecretRequest, {}]>;
+		_updateSecret(secret: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret): Promise<[import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.ISecret, import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.IUpdateSecretRequest, {}]>;
 		/**
 		 * @internal Get gax call options
 		 * */
 		_getCallOptions(): import("google-gax").CallOptions;
 	}
 	export class CachedSecret extends ConcurrentSecret_1 {
+		
+		constructor(name: string, initialValue: string, options: cachedSecretOptions & concurrentSecretOptions);
 		/**
-		 * @param fetchMethod use this method to fetch new secret value
-		 * 
-		 */
-		constructor(name: string, initialValue: string, fetchMethod?: (...args: any) => Promise<string | Buffer>, clientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, options?: concurrentSecretOptions);
+		 * Secret value
+		 * */
 		value: string;
 		
 		fetchMethod: (...args: any) => Promise<string | Buffer>;
 		/**
+		 * Current version name
+		 * */
+		versionName: string | undefined;
+		/**
 		 * Use fetchMethod to get new secret value, missing method fetches latest version data
 		 * */
 		update(...args: any[]): Promise<string>;
+		/**
+		 * Update cached secret value and version name
+		 * */
+		_updateCachedSecret(...args: any[]): Promise<string>;
+		/**
+		 * Clone current secret with new value
+		 * */
+		clone(newValue: string | Buffer): CachedSecret;
 	}
 	export class SecretsCache {
 		/**
-		 * @param clientOptions Secret Manager client instance or the options for a new one
+		 * @param clientOrClientOptions Secret Manager client instance or the options for a new one
 		 * @param cacheOptions LRU Cache options
 		 */
-		constructor(clientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, cacheOptions?: Omit<LRUCache.Options<string, CachedSecret, any>, "fetchMethod">);
+		constructor(clientOrClientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, cacheOptions?: Omit<LRUCache.Options<string, CachedSecret, any>, "fetchMethod">);
+		
 		client: import("@google-cloud/secret-manager").v1.SecretManagerServiceClient;
 		cache: LRUCache<string, CachedSecret, any>;
 		/**
@@ -90,10 +106,10 @@ declare module '@aller/google-cloud-secret' {
 		/**
 		 * Set cached secret
 		 * @param initialValue initial value
-		 * @param updateMethod function to use when to update secret with new value, if omitted return latest secret version data
+		 * @param fetchMethod function to use when to update secret with new value, if omitted return latest secret version data
 		 * @param options cached secret options, plus ttl which is passed to underlying cache
 		 */
-		set(name: string, initialValue?: string, updateMethod?: (options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string | Buffer>, options?: concurrentSecretOptions & cachedSecretOptions): void;
+		set(name: string, initialValue?: string, fetchMethod?: (options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string | Buffer>, options?: concurrentSecretOptions & cachedSetSecretOptions): void;
 		/**
 		 * Update secret and return cached secret with new value
 		 * */
@@ -113,11 +129,25 @@ declare module '@aller/google-cloud-secret' {
 		 */
 		callOptions?: () => import("google-gax").CallOptions | import("google-gax").CallOptions;
 	};
-	export type cachedSecretOptions = {
+	export type cachedSetSecretOptions = {
 		/**
 		 * Time to live
 		 */
 		ttl?: number;
+	};
+	export type cachedSecretOptions = {
+		/**
+		 * use this method to fetch new secret value
+		 */
+		fetchMethod?: (...args: any) => Promise<string | Buffer>;
+		/**
+		 * Secret Manager client instance or the options for a new one
+		 */
+		client?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient;
+		/**
+		 * version name
+		 */
+		versionName?: string;
 	};
 
 	export {};

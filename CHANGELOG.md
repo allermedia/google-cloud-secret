@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v1.0.0 - 2025-10-31
+
+- mitigate possible race conditions by checking for new secret version before updating secret
+
+### Breaking
+
+- cached secret constructor signature changed
+
 ## v0.1.1 - 2025-09-08
 
 - introduce rudimentary secrets cache with `new SecretsCache(client)`
