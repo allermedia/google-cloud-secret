@@ -1,11 +1,12 @@
 import { randomInt } from 'node:crypto';
 import path from 'node:path/posix';
+import { mock } from 'node:test';
 
 import { SecretsCache } from '@aller/google-cloud-secret';
 import secretManager from '@google-cloud/secret-manager';
-import * as ck from 'chronokinesis';
 import nock from 'nock';
 
+import { RpcCodes } from '../../src/fake-server/rpc-codes.js';
 import { startServer, reset } from '../helpers/fake-server.js';
 
 Feature('secrets cache', () => {
@@ -36,10 +37,10 @@ Feature('secrets cache', () => {
     server = server?.forceShutdown();
     reset();
   });
-  after(ck.reset);
+  after(() => mock.timers.reset());
 
   Scenario('cached secret without initial value', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -89,7 +90,7 @@ Feature('secrets cache', () => {
   });
 
   Scenario('cached secret with initial value has new version', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -212,7 +213,7 @@ Feature('secrets cache', () => {
   });
 
   Scenario('cached secret with initial value has no new version', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -273,7 +274,7 @@ Feature('secrets cache', () => {
   });
 
   Scenario('cached secret without initial value or versions', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -316,7 +317,7 @@ Feature('secrets cache', () => {
   });
 
   Scenario('cached secret with initial value but without any secret versions', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -369,7 +370,7 @@ Feature('secrets cache', () => {
   });
 
   Scenario('cached secret without initial value or fetch method and without any secret versions', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -426,7 +427,7 @@ Feature('secrets cache', () => {
   });
 
   Scenario('cached secret without initial value and only one secret disabled versions', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -479,6 +480,586 @@ Feature('secrets cache', () => {
       const cachedSecret = await promisedUpdate;
       expect(cachedSecret.value).to.equal('updated-by-someone-value');
       expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/1`);
+    });
+  });
+
+  Scenario('secret is not in cache', () => {
+    const secretId = `my-secret-${randomInt(100000)}`;
+    const parent = 'projects/1234';
+    const secretName = path.join(parent, 'secrets', secretId);
+
+    /** @type {SecretsCache} */
+    let cache;
+    before(() => {
+      cache = new SecretsCache(client);
+    });
+
+    Given('a secret with one versions', async () => {
+      await client.createSecret({
+        parent: parent,
+        secretId,
+        secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} } },
+      });
+      await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('initial-value') } });
+    });
+
+    let promisedGet;
+    When('getting secret from cache', () => {
+      promisedGet = cache.get(secretName);
+    });
+
+    Then('version one secret is returned', async () => {
+      const secret = await promisedGet;
+      expect(secret.value).to.equal('initial-value');
+    });
+
+    And('remaining ttl is infinity', () => {
+      expect(cache.getRemainingTTL(secretName)).to.equal(Infinity);
+    });
+  });
+
+  Scenario('secret is not in cache and not in gcp', () => {
+    const secretId = `my-secret-${randomInt(100000)}`;
+    const parent = 'projects/1234';
+    const secretName = path.join(parent, 'secrets', secretId);
+
+    /** @type {SecretsCache} */
+    let cache;
+    before(() => {
+      cache = new SecretsCache(client);
+    });
+
+    let promisedGet;
+    When('getting non-existing secret from cache', () => {
+      promisedGet = cache.get(secretName).catch((err) => err);
+    });
+
+    Then('version one secret is returned', async () => {
+      const secretError = await promisedGet;
+      expect(secretError.code).to.equal(RpcCodes.NOT_FOUND);
+    });
+  });
+
+  Scenario('secret is in cache with default value but not in gcp', () => {
+    const secretId = `my-secret-${randomInt(100000)}`;
+    const parent = 'projects/1234';
+    const secretName = path.join(parent, 'secrets', secretId);
+
+    /** @type {SecretsCache} */
+    let cache;
+    before(() => {
+      cache = new SecretsCache(client);
+    });
+
+    Given('item is added to cache with default value', () => {
+      cache.set(secretName, 'dummy-value');
+    });
+
+    let promisedGet;
+    When('getting non-existing secret from cache', () => {
+      promisedGet = cache.get(secretName);
+    });
+
+    Then('version one secret is returned', async () => {
+      const secret = await promisedGet;
+      expect(secret.value).to.equal('dummy-value');
+    });
+  });
+
+  Scenario('Default secrets cache with default ttl', () => {
+    before(() => {
+      mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date() });
+    });
+    after(() => mock.timers.reset());
+
+    /** @type {SecretsCache} */
+    let cache;
+    Given('a cache matching scenario', () => {
+      cache = new SecretsCache(client, { ttl: 60000 });
+    });
+
+    And('cache has default options', () => {
+      expect(cache.cache).to.have.property('allowStale', false);
+      expect(cache.cache).to.have.property('noDeleteOnStaleGet', true);
+    });
+
+    describe('item is in cache with default value and update method', () => {
+      const secretId = `my-secret-${randomInt(1000000)}`;
+      const parent = 'projects/1234';
+      const secretName = path.join(parent, 'secrets', secretId);
+
+      Given('a secret with one versions', async () => {
+        await client.createSecret({
+          parent: parent,
+          secretId,
+          secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} } },
+        });
+        await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('version-1-value') } });
+      });
+
+      let count = 0;
+      And('item is in cache', () => {
+        cache.set(secretName, 'default-value', () => `updated-value-${++count}`);
+      });
+
+      let promisedGet;
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('default-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned again', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('version-1-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl again', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('update method was called and new version is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('updated-value-1');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl again', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('update method was called and new version is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('updated-value-2');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+    });
+
+    describe('item is not in cache', () => {
+      const secretId = `my-secret-${randomInt(1000000)}`;
+      const parent = 'projects/1234';
+      const secretName = path.join(parent, 'secrets', secretId);
+
+      Given('a secret with one versions', async () => {
+        await client.createSecret({
+          parent: parent,
+          secretId,
+          secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} } },
+        });
+        await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('initial-value') } });
+      });
+
+      /** @type {SecretsCache} */
+      let cache;
+      And('a cache with default ttl, disallow stale', () => {
+        cache = new SecretsCache(client, { ttl: 60000, allowStale: false, noDeleteOnStaleGet: false });
+      });
+
+      let promisedGet;
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('initial-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      When('time has ticked close to ttl', () => {
+        mock.timers.tick(59000);
+      });
+
+      Then('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.be.below(60000);
+      });
+
+      Given('time has ticked beyond ttl', () => {
+        mock.timers.tick(1001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned again', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('initial-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('a new version has been added to secret', async () => {
+        await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('new-value') } });
+      });
+
+      And('time has ticked beyond ttl', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('latest version is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('new-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+    });
+
+    describe('item is in cache with default value', () => {
+      const secretId = `my-secret-${randomInt(1000000)}`;
+      const parent = 'projects/1234';
+      const secretName = path.join(parent, 'secrets', secretId);
+
+      Given('a secret with one versions', async () => {
+        await client.createSecret({
+          parent: parent,
+          secretId,
+          secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} } },
+        });
+        await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('version-1-value') } });
+      });
+
+      And('item is in cache', () => {
+        cache.set(secretName, 'default-value');
+      });
+
+      let promisedGet;
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('default-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned again', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('version-1-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl again', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('update method was called and new version is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('version-1-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+    });
+  });
+
+  Scenario('LRU cache with default ttl, disallow stale and delete on stale get', () => {
+    before(() => {
+      mock.timers.enable({ apis: ['Date', 'setTimeout'], now: new Date() });
+    });
+    after(() => mock.timers.reset());
+
+    /** @type {SecretsCache} */
+    let cache;
+    Given('a cache matching scenario', () => {
+      cache = new SecretsCache(client, { ttl: 60000, allowStale: false, noDeleteOnStaleGet: false });
+    });
+
+    describe('item is in cache with default value and update method', () => {
+      const secretId = `my-secret-${randomInt(1000000)}`;
+      const parent = 'projects/1234';
+      const secretName = path.join(parent, 'secrets', secretId);
+
+      Given('a secret with one versions', async () => {
+        await client.createSecret({
+          parent: parent,
+          secretId,
+          secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} } },
+        });
+        await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('version-1-value') } });
+      });
+
+      let count = 0;
+      And('item is in cache', () => {
+        cache.set(secretName, 'default-value', () => `updated-value-${++count}`);
+      });
+
+      let promisedGet;
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('default-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned again', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('version-1-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl again', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('update method was called and new version is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('updated-value-1');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl again', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('update method was called and new version is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('updated-value-2');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+    });
+
+    describe('item is not in cache', () => {
+      const secretId = `my-secret-${randomInt(1000000)}`;
+      const parent = 'projects/1234';
+      const secretName = path.join(parent, 'secrets', secretId);
+
+      Given('a secret with one versions', async () => {
+        await client.createSecret({
+          parent: parent,
+          secretId,
+          secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} } },
+        });
+        await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('initial-value') } });
+      });
+
+      /** @type {SecretsCache} */
+      let cache;
+      And('a cache with default ttl, disallow stale', () => {
+        cache = new SecretsCache(client, { ttl: 60000, allowStale: false, noDeleteOnStaleGet: false });
+      });
+
+      let promisedGet;
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('initial-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      When('time has ticked close to ttl', () => {
+        mock.timers.tick(59000);
+      });
+
+      Then('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.be.below(60000);
+      });
+
+      Given('time has ticked beyond ttl', () => {
+        mock.timers.tick(1001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned again', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('initial-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('a new version has been added to secret', async () => {
+        await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('new-value') } });
+      });
+
+      And('time has ticked beyond ttl', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('latest version is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('new-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+    });
+
+    describe('item is in cache with default value', () => {
+      const secretId = `my-secret-${randomInt(1000000)}`;
+      const parent = 'projects/1234';
+      const secretName = path.join(parent, 'secrets', secretId);
+
+      Given('a secret with one versions', async () => {
+        await client.createSecret({
+          parent: parent,
+          secretId,
+          secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} } },
+        });
+        await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('version-1-value') } });
+      });
+
+      And('item is in cache', () => {
+        cache.set(secretName, 'default-value');
+      });
+
+      let promisedGet;
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('default-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('version one secret is returned again', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('version-1-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
+
+      Given('time has ticked beyond ttl again', () => {
+        mock.timers.tick(60001);
+      });
+
+      When('getting secret from cache', () => {
+        promisedGet = cache.get(secretName);
+      });
+
+      Then('update method was called and new version is returned', async () => {
+        const secret = await promisedGet;
+        expect(secret.value).to.equal('version-1-value');
+      });
+
+      And('remaining ttl is default', () => {
+        expect(cache.getRemainingTTL(secretName)).to.equal(60000);
+      });
     });
   });
 });

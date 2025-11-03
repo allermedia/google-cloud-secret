@@ -195,7 +195,7 @@ export class ConcurrentSecret {
   _prepare() {
     if (this.pendingSecret) return this.pendingSecret;
 
-    debug('preparing secret %s', this.name);
+    debug('preparing secret %s for update', this.name);
 
     this.pendingSecret = this.client.getSecret({ name: this.name }, this._getCallOptions()).then(([secret]) => secret);
     return this.pendingSecret;
@@ -245,8 +245,11 @@ export class CachedSecret extends ConcurrentSecret {
      */
     this.value = initialValue;
 
-    /** @type {(...args: any) => Promise<string|Buffer>} */
-    this.fetchMethod = options?.fetchMethod;
+    /**
+     * Update secret value function
+     * @type {(...args: any) => Promise<string|Buffer>}
+     */
+    this.updateMethod = options?.updateMethod;
 
     /**
      * Current version name
@@ -256,16 +259,18 @@ export class CachedSecret extends ConcurrentSecret {
   }
 
   /**
-   * Use fetchMethod to get new secret value, missing method fetches latest version data
+   * Use method to get new secret value, missing method fetches latest version data
    * @param  {...any} args
    * @returns {Promise<string>}
    */
   async update(...args) {
-    if (!this.fetchMethod || !this.value) {
-      const secretData = await this.getLatestData(!this.fetchMethod);
-      if (!secretData && this.fetchMethod) {
+    if (!this.updateMethod || !this.value) {
+      const secretData = await this.getLatestData(!this.updateMethod);
+      if (!secretData && this.updateMethod) {
         return this._updateCachedSecret(...args);
       }
+
+      debug('cached secret %s lacks updateMethod, using latest version', this.name);
 
       this.versionName = secretData.name;
       this.value = secretData.payload.data?.toString();
@@ -290,20 +295,20 @@ export class CachedSecret extends ConcurrentSecret {
       }
 
       return this._updateCachedSecret(...args);
-    } else {
-      debug('cached secret %s has version %s, checking for new version before update', this.name, this.versionName);
-
-      const latestVersionData = await this.getLatestData();
-
-      if (latestVersionData.name > this.versionName) {
-        debug('a more recent version %s is present, using latest secret value', latestVersionData.name);
-        this.versionName = latestVersionData.name;
-        this.value = latestVersionData.payload.data.toString();
-        return this.value;
-      }
-
-      return this._updateCachedSecret(...args);
     }
+
+    debug('cached secret %s has version %s, checking for new version before update', this.name, this.versionName);
+
+    const latestVersionData = await this.getLatestData();
+
+    if (latestVersionData.name > this.versionName) {
+      debug('a more recent version %s is present, using latest secret value', latestVersionData.name);
+      this.versionName = latestVersionData.name;
+      this.value = latestVersionData.payload.data.toString();
+      return this.value;
+    }
+
+    return this._updateCachedSecret(...args);
   }
 
   /**
@@ -312,7 +317,7 @@ export class CachedSecret extends ConcurrentSecret {
    * @returns {Promise<string>}
    */
   async _updateCachedSecret(...args) {
-    this.value = (await this.optimisticUpdate(this.fetchMethod, ...args))?.toString();
+    this.value = (await this.optimisticUpdate(this.updateMethod, ...args))?.toString();
     this.versionName = this.updatedVersionName;
     return this.value;
   }
@@ -335,17 +340,24 @@ export class SecretsCache {
    */
   constructor(clientOrClientOptions, cacheOptions) {
     /** @type {import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} */
-    this.client =
+    const client = (this.client =
       clientOrClientOptions instanceof secretManager.v1.SecretManagerServiceClient
         ? clientOrClientOptions
-        : new secretManager.v1.SecretManagerServiceClient(clientOrClientOptions);
+        : new secretManager.v1.SecretManagerServiceClient(clientOrClientOptions));
 
     this.cache = new LRUCache({
       max: 500,
-      noDeleteOnFetchRejection: true,
+      allowStale: false,
+      noDeleteOnStaleGet: true,
       ...cacheOptions,
-      async fetchMethod(_key, staleValue, fetcherOptions) {
-        if (!staleValue) return;
+      async fetchMethod(key, staleValue, fetcherOptions) {
+        if (!staleValue) {
+          debug('secret %s is not in cache', key);
+          const secret = new CachedSecret(key, null, { client });
+          await secret.update();
+          return secret;
+        }
+
         const updatedValue = await staleValue.update(fetcherOptions);
         return staleValue.clone(updatedValue);
       },
@@ -362,11 +374,13 @@ export class SecretsCache {
    * Set cached secret
    * @param {string} name
    * @param {string} [initialValue] initial value
-   * @param {(options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string|Buffer>} [fetchMethod] function to use when to update secret with new value, if omitted return latest secret version data
+   * @param {(options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string|Buffer>} [updateMethod] function to use when to update secret with new value, if omitted return latest secret version data
    * @param {concurrentSecretOptions & cachedSetSecretOptions} [options] cached secret options, plus ttl which is passed to underlying cache
    */
-  set(name, initialValue, fetchMethod, options) {
-    this.cache.set(name, new CachedSecret(name, initialValue, { fetchMethod, client: this.client, ...options }), { ttl: options?.ttl });
+  set(name, initialValue, updateMethod, options) {
+    this.cache.set(name, new CachedSecret(name, initialValue, { updateMethod, client: this.client, ...options }), {
+      ttl: options?.ttl,
+    });
     if (!initialValue) this.cache.fetch(name, { forceRefresh: true });
   }
   /**
@@ -394,7 +408,7 @@ export class SecretsCache {
  * @property {number} [ttl] Time to live
  *
  * @typedef {object} cachedSecretOptions
- * @property {(...args: any) => Promise<string|Buffer>} [fetchMethod] use this method to fetch new secret value
+ * @property {(...args: any) => Promise<string|Buffer>} [updateMethod] use this method to update with new secret value
  * @property {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [client] Secret Manager client instance or the options for a new one
  * @property {string} [versionName] version name
  */

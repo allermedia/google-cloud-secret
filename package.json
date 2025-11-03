@@ -1,7 +1,7 @@
 {
   "name": "@aller/google-cloud-secret",
   "description": "Concurrent update of google cloud secret",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./src/index.js",

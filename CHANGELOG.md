@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.0.1 - 2025-11-03
+
+- what if your secret is not in cache? How about an attempt to get it from gcp!? Good idea, done!
+
 ## v1.0.0 - 2025-10-31
 
 - mitigate possible race conditions by checking for new secret version before updating secret

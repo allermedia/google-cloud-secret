@@ -71,14 +71,16 @@ declare module '@aller/google-cloud-secret' {
 		 * Secret value
 		 * */
 		value: string;
-		
-		fetchMethod: (...args: any) => Promise<string | Buffer>;
+		/**
+		 * Update secret value function
+		 * */
+		updateMethod: (...args: any) => Promise<string | Buffer>;
 		/**
 		 * Current version name
 		 * */
 		versionName: string | undefined;
 		/**
-		 * Use fetchMethod to get new secret value, missing method fetches latest version data
+		 * Use method to get new secret value, missing method fetches latest version data
 		 * */
 		update(...args: any[]): Promise<string>;
 		/**
@@ -96,7 +98,6 @@ declare module '@aller/google-cloud-secret' {
 		 * @param cacheOptions LRU Cache options
 		 */
 		constructor(clientOrClientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, cacheOptions?: Omit<LRUCache.Options<string, CachedSecret, any>, "fetchMethod">);
-		
 		client: import("@google-cloud/secret-manager").v1.SecretManagerServiceClient;
 		cache: LRUCache<string, CachedSecret, any>;
 		/**
@@ -106,10 +107,10 @@ declare module '@aller/google-cloud-secret' {
 		/**
 		 * Set cached secret
 		 * @param initialValue initial value
-		 * @param fetchMethod function to use when to update secret with new value, if omitted return latest secret version data
+		 * @param updateMethod function to use when to update secret with new value, if omitted return latest secret version data
 		 * @param options cached secret options, plus ttl which is passed to underlying cache
 		 */
-		set(name: string, initialValue?: string, fetchMethod?: (options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string | Buffer>, options?: concurrentSecretOptions & cachedSetSecretOptions): void;
+		set(name: string, initialValue?: string, updateMethod?: (options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string | Buffer>, options?: concurrentSecretOptions & cachedSetSecretOptions): void;
 		/**
 		 * Update secret and return cached secret with new value
 		 * */
@@ -137,9 +138,9 @@ declare module '@aller/google-cloud-secret' {
 	};
 	export type cachedSecretOptions = {
 		/**
-		 * use this method to fetch new secret value
+		 * use this method to update with new secret value
 		 */
-		fetchMethod?: (...args: any) => Promise<string | Buffer>;
+		updateMethod?: (...args: any) => Promise<string | Buffer>;
 		/**
 		 * Secret Manager client instance or the options for a new one
 		 */
