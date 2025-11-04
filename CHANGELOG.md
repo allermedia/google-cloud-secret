@@ -1,9 +1,14 @@
 # CHANGELOG
 
+## v1.0.3 - 2025-11-04
+
+- add `has` method to secrets cache
+
 ## v1.0.2 - 2025-11-04
 
 - what if your secret is not in cache? How about an attempt to get it from gcp!? Good idea, done!
 - mitigate possible race conditions by checking for new secret version before updating secret
+- add `clone` method to cached secret to facilitate passing along original options
 
 ### Breaking
 

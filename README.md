@@ -162,6 +162,18 @@ Update cached concurrent secret with new version by calling [`concurrentSecret.o
 - cached secret instance
   - `value`: string with updated secret version data
 
+#### `secretsCache.has(name)`
+
+Underlying LRUCache has secret.
+
+**Arguments:**
+
+- `name`: secret name
+
+**Returns:**
+
+Boolean indicating if secret is in cache.
+
 ## IAM Policy
 
 The service account for cloud run or function needs access to update the secret and add versions.

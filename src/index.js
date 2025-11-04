@@ -372,6 +372,13 @@ export class SecretsCache {
     return this.cache.fetch(name);
   }
   /**
+   * Has cached secret
+   * @param {string} name
+   */
+  has(name) {
+    return this.cache.has(name);
+  }
+  /**
    * Set cached secret
    * @param {string} name
    * @param {string} [initialValue] initial value

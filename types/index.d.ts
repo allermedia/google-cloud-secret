@@ -105,6 +105,10 @@ declare module '@aller/google-cloud-secret' {
 		 * */
 		get(name: string): Promise<CachedSecret>;
 		/**
+		 * Has cached secret
+		 * */
+		has(name: string): boolean;
+		/**
 		 * Set cached secret
 		 * @param initialValue initial value
 		 * @param updateMethod function to use when to update secret with new value, if omitted return latest secret version data

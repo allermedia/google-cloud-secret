@@ -41,7 +41,7 @@ Feature('secrets cache', () => {
 
   Scenario('two caches and simultaneous update', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(1000000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     Given('a secret with one versions', async () => {
@@ -112,7 +112,7 @@ Feature('secrets cache', () => {
 
   Scenario('cached secret without initial value', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(1000000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -156,13 +156,13 @@ Feature('secrets cache', () => {
     });
 
     And('cached secret current version is 2', () => {
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/2`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/2`);
     });
   });
 
   Scenario('cached secret with initial value has new version', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(1000000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -217,7 +217,7 @@ Feature('secrets cache', () => {
     });
 
     And('cached secret current version is 2', () => {
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/2`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/2`);
     });
 
     When('getting cached secret again', () => {
@@ -248,7 +248,7 @@ Feature('secrets cache', () => {
     });
 
     And('cached secret current version is 3', () => {
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/3`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/3`);
     });
 
     Given('a new version is created by someone else', async () => {
@@ -266,7 +266,7 @@ Feature('secrets cache', () => {
     });
 
     And('cached secret current version is 4', () => {
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/4`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/4`);
     });
 
     When('secret is deemed invalid again for some reason and wants an update', () => {
@@ -279,13 +279,13 @@ Feature('secrets cache', () => {
     });
 
     And('cached secret current version is 5', () => {
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/5`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/5`);
     });
   });
 
   Scenario('cached secret with initial value has no new version', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(1000000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -340,13 +340,13 @@ Feature('secrets cache', () => {
     });
 
     And('cached secret current version is 3', () => {
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/3`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/3`);
     });
   });
 
   Scenario('cached secret without initial value or versions', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(1000000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -383,13 +383,13 @@ Feature('secrets cache', () => {
     });
 
     And('cached secret current version is 1', () => {
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/1`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/1`);
     });
   });
 
   Scenario('cached secret with initial value but without any secret versions', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(1000000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -436,13 +436,13 @@ Feature('secrets cache', () => {
     });
 
     And('cached secret current version is 1', () => {
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/1`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/1`);
     });
   });
 
   Scenario('cached secret without initial value or fetch method and without any secret versions', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(1000000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -493,13 +493,13 @@ Feature('secrets cache', () => {
     Then('item has new secret version value', async () => {
       const cachedSecret = await promisedUpdate;
       expect(cachedSecret.value).to.equal('updated-by-someone-value');
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/1`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/1`);
     });
   });
 
   Scenario('cached secret without initial value and only one secret disabled versions', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(1000000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -550,13 +550,13 @@ Feature('secrets cache', () => {
     Then('item has new secret version value', async () => {
       const cachedSecret = await promisedUpdate;
       expect(cachedSecret.value).to.equal('updated-by-someone-value');
-      expect(cachedSecret.versionName).to.equal(`projects/1234/secrets/${secretId}/versions/1`);
+      expect(cachedSecret.versionName).to.equal(`${secretName}/versions/1`);
     });
   });
 
   Scenario('secret is not in cache', () => {
     const secretId = `my-secret-${randomInt(100000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(100000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -591,7 +591,7 @@ Feature('secrets cache', () => {
 
   Scenario('secret is not in cache and not in gcp', () => {
     const secretId = `my-secret-${randomInt(100000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(100000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -609,11 +609,24 @@ Feature('secrets cache', () => {
       const secretError = await promisedGet;
       expect(secretError.code).to.equal(RpcCodes.NOT_FOUND);
     });
+
+    And('item is not added to cache', () => {
+      expect(cache.has(secretName)).to.be.false;
+    });
+
+    When('getting non-existing secret from cache again', () => {
+      promisedGet = cache.get(secretName).catch((err) => err);
+    });
+
+    Then('version one secret is returned', async () => {
+      const secretError = await promisedGet;
+      expect(secretError.code).to.equal(RpcCodes.NOT_FOUND);
+    });
   });
 
   Scenario('secret is in cache with default value but not in gcp', () => {
     const secretId = `my-secret-${randomInt(100000)}`;
-    const parent = 'projects/1234';
+    const parent = `projects/${randomInt(100000)}`;
     const secretName = path.join(parent, 'secrets', secretId);
 
     /** @type {SecretsCache} */
@@ -657,7 +670,7 @@ Feature('secrets cache', () => {
 
     describe('item is in cache with default value and update method', () => {
       const secretId = `my-secret-${randomInt(1000000)}`;
-      const parent = 'projects/1234';
+      const parent = `projects/${randomInt(1000000)}`;
       const secretName = path.join(parent, 'secrets', secretId);
 
       Given('a secret with one versions', async () => {
@@ -742,7 +755,7 @@ Feature('secrets cache', () => {
 
     describe('item is not in cache', () => {
       const secretId = `my-secret-${randomInt(1000000)}`;
-      const parent = 'projects/1234';
+      const parent = `projects/${randomInt(1000000)}`;
       const secretName = path.join(parent, 'secrets', secretId);
 
       Given('a secret with one versions', async () => {
@@ -823,7 +836,7 @@ Feature('secrets cache', () => {
 
     describe('item is in cache with default value', () => {
       const secretId = `my-secret-${randomInt(1000000)}`;
-      const parent = 'projects/1234';
+      const parent = `projects/${randomInt(1000000)}`;
       const secretName = path.join(parent, 'secrets', secretId);
 
       Given('a secret with one versions', async () => {
@@ -903,7 +916,7 @@ Feature('secrets cache', () => {
 
     describe('item is in cache with default value and update method', () => {
       const secretId = `my-secret-${randomInt(1000000)}`;
-      const parent = 'projects/1234';
+      const parent = `projects/${randomInt(1000000)}`;
       const secretName = path.join(parent, 'secrets', secretId);
 
       Given('a secret with one versions', async () => {
@@ -988,7 +1001,7 @@ Feature('secrets cache', () => {
 
     describe('item is not in cache', () => {
       const secretId = `my-secret-${randomInt(1000000)}`;
-      const parent = 'projects/1234';
+      const parent = `projects/${randomInt(1000000)}`;
       const secretName = path.join(parent, 'secrets', secretId);
 
       Given('a secret with one versions', async () => {
@@ -1069,7 +1082,7 @@ Feature('secrets cache', () => {
 
     describe('item is in cache with default value', () => {
       const secretId = `my-secret-${randomInt(1000000)}`;
-      const parent = 'projects/1234';
+      const parent = `projects/${randomInt(1000000)}`;
       const secretName = path.join(parent, 'secrets', secretId);
 
       Given('a secret with one versions', async () => {
