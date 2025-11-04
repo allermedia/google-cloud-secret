@@ -39,6 +39,77 @@ Feature('secrets cache', () => {
   });
   after(() => mock.timers.reset());
 
+  Scenario('two caches and simultaneous update', () => {
+    const secretId = `my-secret-${randomInt(1000000)}`;
+    const parent = 'projects/1234';
+    const secretName = path.join(parent, 'secrets', secretId);
+
+    Given('a secret with one versions', async () => {
+      await client.createSecret({
+        parent: parent,
+        secretId,
+        secret: { versionDestroyTtl: { seconds: 86400, nanos: 0 }, replication: { automatic: {} } },
+      });
+      await client.addSecretVersion({ parent: secretName, payload: { data: Buffer.from('initial-value') } });
+    });
+
+    let count = 0;
+    function updateMethod() {
+      return `updated-value-${++count}`;
+    }
+
+    /** @type {SecretsCache} */
+    let cache1;
+    /** @type {SecretsCache} */
+    let cache2;
+    /** @type {SecretsCache} */
+    let cache3;
+    And('two caches with secret and update method, and an idling third', () => {
+      cache1 = new SecretsCache(client);
+      cache1.set(secretName, 'initial-value', updateMethod);
+      cache2 = new SecretsCache(client);
+      cache2.set(secretName, 'initial-value', updateMethod);
+      cache3 = new SecretsCache(client);
+      cache3.set(secretName, 'initial-value', updateMethod);
+    });
+
+    When('attempting simultaneous update', async () => {
+      await Promise.all([cache1.update(secretName).catch((err) => err), cache2.update(secretName).catch((err) => err)]);
+    });
+
+    Then('first cache update succeeded and retrieved new value', async () => {
+      expect((await cache1.get(secretName)).value).to.equal('updated-value-1');
+    });
+
+    And('second cache update failed and keeps old value', async () => {
+      expect((await cache2.get(secretName)).value).to.equal('initial-value');
+    });
+
+    When('second cache is updated after failure', () => {
+      return cache2.update(secretName);
+    });
+
+    Then('new version value is picked', async () => {
+      expect((await cache2.get(secretName)).value).to.equal('updated-value-1');
+    });
+
+    When('second cache is updated again', () => {
+      return cache2.update(secretName);
+    });
+
+    Then('a new version value is returned', async () => {
+      expect((await cache2.get(secretName)).value).to.equal('updated-value-2');
+    });
+
+    When('third cache wants an update', () => {
+      return cache3.update(secretName);
+    });
+
+    Then('the second cache update value is returned since a new version exists since start', async () => {
+      expect((await cache3.get(secretName)).value).to.equal('updated-value-2');
+    });
+  });
+
   Scenario('cached secret without initial value', () => {
     const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
@@ -581,6 +652,7 @@ Feature('secrets cache', () => {
     And('cache has default options', () => {
       expect(cache.cache).to.have.property('allowStale', false);
       expect(cache.cache).to.have.property('noDeleteOnStaleGet', true);
+      expect(cache.cache).to.have.property('noDeleteOnFetchRejection', true);
     });
 
     describe('item is in cache with default value and update method', () => {

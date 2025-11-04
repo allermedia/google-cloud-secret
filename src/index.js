@@ -349,6 +349,7 @@ export class SecretsCache {
       max: 500,
       allowStale: false,
       noDeleteOnStaleGet: true,
+      noDeleteOnFetchRejection: true,
       ...cacheOptions,
       async fetchMethod(key, staleValue, fetcherOptions) {
         if (!staleValue) {
