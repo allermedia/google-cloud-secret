@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.0.4 - 2025-11-12
+
+- publish package with github actions
+
 ## v1.0.3 - 2025-11-04
 
 - add `has` method to secrets cache
