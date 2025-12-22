@@ -295,6 +295,19 @@ describe('concurrent secret', () => {
     client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
       port: server.origin.port,
+      // Faking auth client makes test run faster
+      auth: {
+        getUniverseDomain() {
+          return 'googleapis.com';
+        },
+        getClient() {
+          return {
+            getRequestHeaders() {
+              return new Map();
+            },
+          };
+        },
+      },
     });
   });
   after(async () => {

@@ -5,6 +5,7 @@ import { ConcurrentSecret } from '@aller/google-cloud-secret';
 import secretManager from '@google-cloud/secret-manager';
 import nock from 'nock';
 
+import { fakeAuth } from '../helpers/fake-auth.js';
 import { startServer, reset } from '../helpers/fake-server.js';
 
 Feature('client versions', () => {
@@ -34,6 +35,7 @@ Feature('client versions', () => {
     const client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
       port: server.origin.port,
+      auth: fakeAuth(),
     });
 
     await client.createSecret({
@@ -50,10 +52,11 @@ Feature('client versions', () => {
   Scenario('v1 client is used to update secret', () => {
     /** @type {import('@google-cloud/secret-manager').SecretManagerServiceClient} */
     let client;
-    before('grpc server', () => {
+    before('grpc client', () => {
       client = new secretManager.v1.SecretManagerServiceClient({
         apiEndpoint: 'localhost',
         port: server.origin.port,
+        auth: fakeAuth(),
       });
     });
     after(async () => {

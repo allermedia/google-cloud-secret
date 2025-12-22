@@ -5,6 +5,7 @@ import { ConcurrentSecret } from '@aller/google-cloud-secret';
 import secretManager from '@google-cloud/secret-manager';
 import nock from 'nock';
 
+import { fakeAuth } from '../helpers/fake-auth.js';
 import { startServer, reset } from '../helpers/fake-server.js';
 
 Feature('get secret data', () => {
@@ -28,6 +29,7 @@ Feature('get secret data', () => {
     client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
       port: server.origin.port,
+      auth: fakeAuth(),
     });
   });
   after(async () => {

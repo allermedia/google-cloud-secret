@@ -4,6 +4,7 @@ import secretManager from '@google-cloud/secret-manager';
 import Debug from 'debug';
 import nock from 'nock';
 
+import { fakeAuth } from './helpers/fake-auth.js';
 import { startServer, RpcCodes } from './helpers/fake-server.js';
 
 const debug = Debug('test:aller:google-cloud-secret');
@@ -43,6 +44,7 @@ describe('fake grpc server', () => {
       client = new secretManager.v1.SecretManagerServiceClient({
         apiEndpoint: 'localhost',
         port: server.origin.port,
+        auth: fakeAuth(),
       });
 
       debug('client created');

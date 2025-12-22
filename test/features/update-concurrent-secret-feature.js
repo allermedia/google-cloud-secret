@@ -6,6 +6,7 @@ import secretManager from '@google-cloud/secret-manager';
 import * as ck from 'chronokinesis';
 import nock from 'nock';
 
+import { fakeAuth } from '../helpers/fake-auth.js';
 import { startServer, RpcCodes, reset } from '../helpers/fake-server.js';
 
 Feature('update concurrent secret', () => {
@@ -29,6 +30,7 @@ Feature('update concurrent secret', () => {
     client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
       port: server.origin.port,
+      auth: fakeAuth(),
     });
   });
   after(async () => {
@@ -74,6 +76,7 @@ Feature('update concurrent secret', () => {
       const anotherConcurrentSecret = new ConcurrentSecret(secretName, {
         apiEndpoint: 'localhost',
         port: server.origin.port,
+        auth: fakeAuth(),
       });
 
       try {

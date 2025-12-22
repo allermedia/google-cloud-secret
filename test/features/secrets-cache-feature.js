@@ -7,6 +7,7 @@ import secretManager from '@google-cloud/secret-manager';
 import nock from 'nock';
 
 import { RpcCodes } from '../../src/fake-server/rpc-codes.js';
+import { fakeAuth } from '../helpers/fake-auth.js';
 import { startServer, reset } from '../helpers/fake-server.js';
 
 Feature('secrets cache', () => {
@@ -30,6 +31,7 @@ Feature('secrets cache', () => {
     client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
       port: server.origin.port,
+      auth: fakeAuth(),
     });
   });
   after(async () => {
@@ -121,6 +123,7 @@ Feature('secrets cache', () => {
       cache = new SecretsCache({
         apiEndpoint: 'localhost',
         port: server.origin.port,
+        auth: fakeAuth(),
       });
     });
 
