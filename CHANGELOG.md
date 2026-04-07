@@ -1,8 +1,9 @@
 # CHANGELOG
 
-## v1.0.5 - 2026-03-06
+## v1.0.5 - 2026-03-07
 
 - tsconfig modification resulted in tiny update of type declarations
+- remove nocking google-apis token in tests, redundant since fake auth does the trick
 
 ## v1.0.4 - 2025-11-12
 

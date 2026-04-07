@@ -263,24 +263,12 @@ import fs from 'node:fs';
 
 import secretManager from '@google-cloud/secret-manager';
 import * as ck from 'chronokinesis';
-import nock from 'nock';
 
 import { ConcurrentSecret } from '@aller/google-cloud-secret';
 
 import { startServer, reset } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
 
 describe('concurrent secret', () => {
-  before(() => {
-    nock('https://oauth2.googleapis.com')
-      .post('/token', (body) => {
-        return body.target_audience ? new URL(body.target_audience) : true;
-      })
-      .query(true)
-      .reply(200, { id_token: 'google-auth-id-token', access_token: 'google-auth-access-token' })
-      .persist();
-  });
-  after(nock.cleanAll);
-
   let server;
   let client;
   before('grpc server', async () => {
