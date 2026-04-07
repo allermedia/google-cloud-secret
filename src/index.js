@@ -85,6 +85,7 @@ export class ConcurrentSecret {
     }
   }
   /**
+   * Update secret with new version. Destroy the previous version on successful update.
    * @param {(...args: any) => Promise<string | Buffer>} fn get new secret function, call this function if a lock was acheieved
    * @param  {...any} args optional arguments to function
    * @returns {Promise<string | Buffer>} new secret version data

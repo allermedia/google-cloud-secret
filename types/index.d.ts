@@ -1,4 +1,5 @@
 declare module '@aller/google-cloud-secret' {
+	import type { default as secretManager } from '@google-cloud/secret-manager';
 	import type { LRUCache } from 'lru-cache';
 	export class ConcurrentSecretError extends Error {
 		
@@ -15,7 +16,7 @@ declare module '@aller/google-cloud-secret' {
 		constructor(name: string, clientOrClientOptions?: import("google-gax").ClientOptions | import("@google-cloud/secret-manager").v1.SecretManagerServiceClient, options?: concurrentSecretOptions);
 		name: string;
 		latestVersionName: string;
-		client: import("@google-cloud/secret-manager/build/src/v1/secret_manager_service_client.js").SecretManagerServiceClient;
+		client: secretManager.v1.SecretManagerServiceClient;
 		
 		secret: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret | undefined;
 		
@@ -30,13 +31,14 @@ declare module '@aller/google-cloud-secret' {
 		 * Get latest version
 		 * 
 		 */
-		getLatestVersion(throwOnNotFound?: boolean): Promise<import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.ISecretVersion>;
+		getLatestVersion(throwOnNotFound?: boolean): Promise<secretManager.protos.google.cloud.secretmanager.v1.ISecretVersion>;
 		/**
 		 * Get latest version secret data
 		 * 
 		 */
-		getLatestData(throwOnNotFound?: boolean): Promise<import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.IAccessSecretVersionResponse>;
+		getLatestData(throwOnNotFound?: boolean): Promise<secretManager.protos.google.cloud.secretmanager.v1.IAccessSecretVersionResponse>;
 		/**
+		 * Update secret with new version. Destroy the previous version on successful update.
 		 * @param fn get new secret function, call this function if a lock was acheieved
 		 * @param  args optional arguments to function
 		 * @returns new secret version data
@@ -46,7 +48,7 @@ declare module '@aller/google-cloud-secret' {
 		 * Lock secret by updating it so that it rotates etag
 		 * @returns locked secret
 		 */
-		lock(): Promise<import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.ISecret>;
+		lock(): Promise<secretManager.protos.google.cloud.secretmanager.v1.ISecret>;
 		/**
 		 * Unlock secret
 		 */
@@ -54,11 +56,11 @@ declare module '@aller/google-cloud-secret' {
 		/**
 		 * @internal Prepare optimistic update
 		 */
-		_prepare(): Promise<import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.ISecret>;
+		_prepare(): Promise<secretManager.protos.google.cloud.secretmanager.v1.ISecret>;
 		/**
 		 * @internal Get gax call options
 		 * */
-		_updateSecret(secret: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret): Promise<[import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.ISecret, import("@google-cloud/secret-manager/build/protos/protos.js").google.cloud.secretmanager.v1.IUpdateSecretRequest, {}]>;
+		_updateSecret(secret: import("@google-cloud/secret-manager").protos.google.cloud.secretmanager.v1.ISecret): Promise<[secretManager.protos.google.cloud.secretmanager.v1.ISecret, secretManager.protos.google.cloud.secretmanager.v1.IUpdateSecretRequest, {}]>;
 		/**
 		 * @internal Get gax call options
 		 * */

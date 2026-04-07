@@ -36,7 +36,7 @@ Update secret with new version. Destroy the previous version on successful updat
 
 **Arguments:**
 
-- `fn`: function to be called if lock succeeds, must return string of buffer
+- `fn`: function to be called if lock succeeds, must return string or buffer
 - `...args`: optional arguments passed to `fn`
 
 **Returns:**

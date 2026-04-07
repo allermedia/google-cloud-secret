@@ -69,7 +69,7 @@ const exampleServer = {
         // @ts-ignore
         replication: !payload.secret.replication?.automatic ? 'userManaged' : 'automatic',
       },
-      etag: `"${randomBytes(7).toString('hex')}"`,
+      etag: generateEtag(),
       createTime: {
         nanos: now.getUTCMilliseconds() * 1e6,
         seconds: Math.floor(now.setUTCMilliseconds(0) / 1000),
@@ -124,7 +124,7 @@ const exampleServer = {
     /** @type {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecretVersion} */
     const fakeVersion = {
       name: path.join(payload.parent, 'versions', (parentSecret.versions.length + 1).toString()),
-      etag: `"${randomBytes(7).toString('hex')}"`,
+      etag: generateEtag(),
       state: 'ENABLED',
       createTime: {
         nanos: now.getUTCMilliseconds() * 1e6,
@@ -167,7 +167,7 @@ const exampleServer = {
     }
 
     fakeVersion.version.state = 'DISABLED';
-    fakeVersion.version.etag = `"${randomBytes(7).toString('hex')}"`;
+    fakeVersion.version.etag = generateEtag();
 
     respond(null, fakeVersion.version);
   },
@@ -202,7 +202,7 @@ const exampleServer = {
     }
 
     fakeVersion.version.state = 'ENABLED';
-    fakeVersion.version.etag = `"${randomBytes(7).toString('hex')}"`;
+    fakeVersion.version.etag = generateEtag();
 
     respond(null, fakeVersion.version);
   },
@@ -300,7 +300,7 @@ const exampleServer = {
 
     const now = new Date();
 
-    fakeVersion.version.etag = `"${randomBytes(7).toString('hex')}"`;
+    fakeVersion.version.etag = generateEtag();
     fakeSecret.metadata = req.metadata;
 
     if (fakeSecret.secret.versionDestroyTtl) {
@@ -361,7 +361,7 @@ const exampleServer = {
     debug('secret %s was updated', name, req.metadata.getMap());
 
     fakeSecret.metadata = req.metadata;
-    fakeSecret.secret.etag = `"${randomBytes(7).toString('hex')}"`;
+    fakeSecret.secret.etag = generateEtag();
 
     respond(null, fakeSecret.secret);
   },
@@ -409,8 +409,6 @@ const serviceProto = grpc.loadPackageDefinition(servicePackageDefinition);
  * @returns {Promise<import('@grpc/grpc-js').Server>} Fake gRPC Google Secret Manager server
  */
 export async function startServer(options) {
-  // const debug = Debug('aller:google-cloud-secret:fake-server');
-
   const { port, cert } = {
     ...options,
     port: options.port || Number(`5${randomInt(1000).toString().padStart(4, '0')}`),
@@ -447,6 +445,10 @@ export async function startServer(options) {
   });
 
   return server;
+}
+
+function generateEtag() {
+  return `"${randomBytes(7).toString('hex')}"`;
 }
 
 /**

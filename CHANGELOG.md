@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.0.5 - 2026-03-06
+
+- tsconfig modification resulted in tiny update of type declarations
+
 ## v1.0.4 - 2025-11-12
 
 - publish package with github actions

@@ -1,7 +1,7 @@
 {
   "name": "@aller/google-cloud-secret",
   "description": "Concurrent update of google cloud secret",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./src/index.js",
@@ -35,7 +35,10 @@
     "secret",
     "cache",
     "concurrent",
-    "update"
+    "update",
+    "fake",
+    "mock",
+    "grpc"
   ],
   "author": {
     "name": "Aller Media",
