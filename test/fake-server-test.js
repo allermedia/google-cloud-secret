@@ -74,6 +74,85 @@ describe('fake grpc server', () => {
       expect(secret).to.be.ok;
     });
 
+    it('deleteSecret non-existing secret returns not found', async () => {
+      const secretId = `my-secret-${randomInt(10000)}`;
+
+      try {
+        await client.deleteSecret({
+          name: `projects/1234/secrets/${secretId}`,
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-var
+        var error = err;
+      }
+
+      expect(error).to.have.property('code', RpcCodes.NOT_FOUND);
+      expect(error?.message).to.include(`Secret [projects/1234/secrets/${secretId}] not found.`);
+    });
+
+    it('deleteSecret existing secret returns empty', async () => {
+      const secretId = `my-secret-${randomInt(10000)}`;
+
+      const [newSecret] = await client.createSecret({
+        parent: 'projects/1234',
+        secretId: secretId,
+        secret: { replication: { automatic: {} } },
+      });
+
+      const response = await client.deleteSecret({
+        name: newSecret.name,
+      });
+
+      expect(response[0]).to.be.empty;
+    });
+
+    it('deleteSecret matching etag returns empty', async () => {
+      const secretId = `my-secret-${randomInt(10000)}`;
+
+      const [newSecret] = await client.createSecret({
+        parent: 'projects/1234',
+        secretId: secretId,
+        secret: { replication: { automatic: {} } },
+      });
+
+      const response = await client.deleteSecret({
+        name: newSecret.name,
+        etag: newSecret.etag,
+      });
+
+      expect(response[0]).to.be.empty;
+    });
+
+    it('deleteSecret with mismatching etag returns failed precondition', async () => {
+      const secretId = `my-secret-${randomInt(10000)}`;
+
+      const [newSecret] = await client.createSecret({
+        parent: 'projects/1234',
+        secretId: secretId,
+        secret: { replication: { automatic: {} } },
+      });
+
+      await client.updateSecret({
+        secret: {
+          name: `projects/1234/secrets/${secretId}`,
+          etag: newSecret.etag,
+        },
+        updateMask: { paths: ['annotations'] },
+      });
+
+      try {
+        await client.deleteSecret({
+          name: `projects/1234/secrets/${secretId}`,
+          etag: newSecret.etag,
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-var
+        var error = err;
+      }
+
+      expect(error).to.have.property('code', RpcCodes.FAILED_PRECONDITION);
+    });
+
     ['foo', 'projects/foo', 'projects/123a/secrets/bar'].forEach((name) => {
       it(`getSecret with malformatted name (${name}) throws`, async () => {
         try {

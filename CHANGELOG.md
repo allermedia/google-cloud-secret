@@ -4,6 +4,7 @@
 
 - tsconfig modification resulted in tiny update of type declarations
 - remove nocking google-apis token in tests, redundant since fake auth does the trick
+- implement fake server delete secret
 
 ## v1.0.4 - 2025-11-12
 

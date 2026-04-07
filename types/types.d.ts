@@ -35,3 +35,8 @@ export interface AccessSecretVersionRequest {
   request: protos.google.cloud.secretmanager.v1.IAccessSecretVersionRequest;
   metadata: Metadata;
 }
+
+export interface DeleteSecretRequest {
+  request: protos.google.cloud.secretmanager.v1.IDeleteSecretRequest;
+  metadata: Metadata;
+}

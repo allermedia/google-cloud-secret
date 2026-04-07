@@ -29,6 +29,24 @@ class FakeRpcError extends Error {
   }
 }
 
+class FakeRpcMismatchingEtagError extends FakeRpcError {
+  constructor() {
+    super(
+      "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
+      RpcCodes.FAILED_PRECONDITION
+    );
+  }
+}
+
+class FakeRpcSecretNotFoundError extends FakeRpcError {
+  /**
+   * @param {string} name secret name
+   */
+  constructor(name) {
+    super(`Secret [${name}] not found.`, RpcCodes.NOT_FOUND);
+  }
+}
+
 // Fake your secret manager implementation
 const exampleServer = {
   /**
@@ -95,7 +113,7 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(name))) {
-      return respond(new FakeRpcError(`Secret [${name}] not found.`, RpcCodes.NOT_FOUND));
+      return respond(new FakeRpcSecretNotFoundError(name));
     }
 
     respond(null, { ...fakeSecret.secret });
@@ -114,7 +132,7 @@ const exampleServer = {
     const parentSecret = db.get(payload.parent);
 
     if (!parentSecret) {
-      return respond(new FakeRpcError(`Secret [${payload.parent}] not found.`, RpcCodes.NOT_FOUND));
+      return respond(new FakeRpcSecretNotFoundError(payload.parent));
     }
 
     const now = new Date();
@@ -152,18 +170,13 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
+      return respond(new FakeRpcSecretNotFoundError(parent));
     }
 
     const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
 
     if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      return respond(
-        new FakeRpcError(
-          "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
-          RpcCodes.FAILED_PRECONDITION
-        )
-      );
+      return respond(new FakeRpcMismatchingEtagError());
     }
 
     fakeVersion.version.state = 'DISABLED';
@@ -184,7 +197,7 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
+      return respond(new FakeRpcSecretNotFoundError(parent));
     }
 
     const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
@@ -193,12 +206,7 @@ const exampleServer = {
     }
 
     if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      return respond(
-        new FakeRpcError(
-          "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
-          RpcCodes.FAILED_PRECONDITION
-        )
-      );
+      return respond(new FakeRpcMismatchingEtagError());
     }
 
     fakeVersion.version.state = 'ENABLED';
@@ -219,7 +227,7 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
+      return respond(new FakeRpcSecretNotFoundError(parent));
     }
 
     fakeSecret.metadata = req.metadata;
@@ -272,7 +280,7 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
+      return respond(new FakeRpcSecretNotFoundError(parent));
     }
 
     const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
@@ -290,12 +298,7 @@ const exampleServer = {
     }
 
     if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      return respond(
-        new FakeRpcError(
-          "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
-          RpcCodes.FAILED_PRECONDITION
-        )
-      );
+      return respond(new FakeRpcMismatchingEtagError());
     }
 
     const now = new Date();
@@ -339,16 +342,11 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(name))) {
-      return respond(new FakeRpcError(`Secret [${name}] not found.`, RpcCodes.NOT_FOUND));
+      return respond(new FakeRpcSecretNotFoundError(name));
     }
 
     if (payload.secret?.etag && payload.secret?.etag !== fakeSecret.secret.etag) {
-      return respond(
-        new FakeRpcError(
-          "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
-          RpcCodes.FAILED_PRECONDITION
-        )
-      );
+      return respond(new FakeRpcMismatchingEtagError());
     }
 
     if (payload.updateMask?.paths?.length) {
@@ -378,7 +376,7 @@ const exampleServer = {
 
     let fakeSecret;
     if (!(fakeSecret = db.get(parent))) {
-      return respond(new FakeRpcError(`Secret [${parent}] not found.`, RpcCodes.NOT_FOUND));
+      return respond(new FakeRpcSecretNotFoundError(parent));
     }
 
     const fakeVersions = fakeSecret.versions;
@@ -394,6 +392,28 @@ const exampleServer = {
     }
 
     respond(null, { name: fakeVersion.version.name, payload: { data: fakeVersion.data } });
+  },
+  /**
+   * Delete secret
+   * @param {import('types').DeleteSecretRequest} req
+   * @param {CallableFunction} respond
+   */
+  DeleteSecret(req, respond) {
+    const payload = req.request;
+    const { name, etag } = payload;
+
+    let fakeSecret;
+    if (!(fakeSecret = db.get(name))) {
+      return respond(new FakeRpcSecretNotFoundError(name));
+    }
+
+    if (etag && etag !== fakeSecret.secret.etag) {
+      return respond(new FakeRpcMismatchingEtagError());
+    }
+
+    db.delete(name);
+
+    return respond(null, {});
   },
 };
 
