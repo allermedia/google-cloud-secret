@@ -4,12 +4,29 @@ Concurrent safe update of google cloud secret. No rocket science, just rely on s
 
 [![Build](https://github.com/allermedia/google-secret/actions/workflows/build.yaml/badge.svg)](https://github.com/allermedia/google-secret/actions/workflows/build.yaml)
 
+<!-- toc -->
+
 - [Api](#api)
-  - [Concurrent secret](#new-concurrentsecretname-clientorclientoptions-options)
-  - [Secret cache](#new-secretscacheclientorclientoptions-cacheoptions)
-- [IAM policy](#iam-policy)
-- [Fake google secret manager server](#fake-google-secret-manager-server)
+  - [`new ConcurrentSecret(name[, clientOrClientOptions, options])`](#new-concurrentsecretname-clientorclientoptions-options)
+    - [`concurrentSecret.optimisticUpdate(fn, ...args)`](#concurrentsecretoptimisticupdatefn-args)
+    - [Example](#example)
+  - [`concurrentSecret.getLatestData()`](#concurrentsecretgetlatestdata)
+  - [`new SecretsCache([clientOrClientOptions, cacheOptions])`](#new-secretscacheclientorclientoptions-cacheoptions)
+    - [Example](#example-1)
+    - [`secretsCache.set(name[, initialValue, updateMethod, options])`](#secretscachesetname-initialvalue-updatemethod-options)
+    - [`async secretsCache.get(name)`](#async-secretscachegetname)
+    - [`async secretsCache.update(name)`](#async-secretscacheupdatename)
+    - [`secretsCache.has(name)`](#secretscachehasname)
+- [IAM Policy](#iam-policy)
+- [Testing](#testing)
+  - [Make certificates with mkcert ca](#make-certificates-with-mkcert-ca)
+  - [Run tests](#run-tests)
+  - [Fake google secret manager server](#fake-google-secret-manager-server)
+- [Call options](#call-options)
 - [Debug](#debug)
+  - [Run with gRPC DEBUG](#run-with-grpc-debug)
+
+<!-- /toc -->
 
 ## Api
 

@@ -1,18 +1,20 @@
 {
   "name": "@aller/google-cloud-secret",
   "description": "Concurrent update of google cloud secret",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "main": "./lib/index.cjs",
   "module": "./src/index.js",
   "types": "./types/index.d.ts",
   "scripts": {
     "test": "mocha",
-    "posttest": "npm run lint && npm run build",
+    "posttest": "npm run lint && npm run build && npm run test:md",
     "lint": "eslint . --cache && prettier . -c",
     "cov:html": "c8 -n src -r html -r text mocha",
     "test:lcov": "c8 -n src -r lcov -r text mocha",
-    "build": "rollup -c && dts-buddy",
+    "test:md": "texample -c .mocharc.json -r ./scripts/texample-setup.js README.md",
+    "build": "rollup -c && dts-buddy && npm run toc",
+    "toc": "node ./scripts/toc.js",
     "prepublishOnly": "npm run build"
   },
   "exports": {
@@ -58,7 +60,7 @@
     "@types/node": "^22.18.13",
     "c8": "^11.0.0",
     "chai": "^6.0.1",
-    "chronokinesis": "^7.0.0",
+    "chronokinesis": "^8.0.0",
     "debug": "^4.4.1",
     "dts-buddy": "^0.7.0",
     "eslint": "^9.33.0",
@@ -70,7 +72,8 @@
     "mocha-cakes-2": "^3.3.0",
     "nock": "^14.0.9",
     "prettier": "^3.6.2",
-    "rollup": "^4.46.3"
+    "rollup": "^4.46.3",
+    "texample": "^1.0.0"
   },
   "peerDependencies": {
     "@google-cloud/secret-manager": "6.x",
