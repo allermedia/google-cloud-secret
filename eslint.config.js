@@ -1,6 +1,5 @@
 import js from '@eslint/js';
-import eslintImport from 'eslint-plugin-import';
-import jsonc from 'eslint-plugin-jsonc';
+import perfectionist from 'eslint-plugin-perfectionist';
 import globals from 'globals';
 
 const rules = {
@@ -70,23 +69,28 @@ const rules = {
   yoda: [2, 'never'],
 
   // Import rules
-  'import/order': [
+  'no-duplicate-imports': 'error',
+  'padding-line-between-statements': [
+    'error',
+    { blankLine: 'always', prev: 'import', next: '*' },
+    { blankLine: 'any', prev: 'import', next: 'import' },
+  ],
+  'perfectionist/sort-imports': [
     'error',
     {
-      groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'object', 'type'],
-      'newlines-between': 'always', // Enforce new lines between groups
-      alphabetize: { order: 'asc', caseInsensitive: true }, // Sort imports alphabetically
+      type: 'alphabetical',
+      order: 'asc',
+      ignoreCase: true,
+      newlinesBetween: 1,
+      groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type'],
     },
   ],
-  'import/newline-after-import': ['error', { count: 1 }], // Enforce a newline after the last import
-  'import/no-duplicates': 'error', // Prevent duplicate imports
 };
 
 export default [
   js.configs.recommended,
-  ...jsonc.configs['flat/recommended-with-jsonc'],
   {
-    plugins: { import: eslintImport },
+    plugins: { perfectionist },
     languageOptions: {
       parserOptions: {
         sourceType: 'module',
