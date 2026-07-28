@@ -94,7 +94,7 @@ export default [
     languageOptions: {
       parserOptions: {
         sourceType: 'module',
-        ecmaVersion: 2022,
+        ecmaVersion: 'latest',
       },
     },
     rules,

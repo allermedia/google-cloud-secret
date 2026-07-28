@@ -1,21 +1,13 @@
-import fs from 'node:fs';
-import { createRequire } from 'node:module';
-
 import secretManager from '@google-cloud/secret-manager';
+import * as grpc from '@grpc/grpc-js';
+import 'chai/register-expect.js';
 import Mocha from 'mocha';
 import { ExampleEvaluator } from 'texample';
 
-import { reset, startServer } from '../src/fake-server/fake-secret-manager-server.js';
+import packageDefinition from '../package.json' with { type: 'json' };
+import { startServer } from '../src/fake-server/fake-secret-manager-server.js';
 
-const require = createRequire(import.meta.url);
-const packageDefinition = require('../package.json');
-
-const cert = {
-  private_key: fs.readFileSync('./tmp/mkcert/dev-key.pem'),
-  cert_chain: fs.readFileSync('./tmp/mkcert/dev-cert.pem'),
-};
-
-const server = await startServer({ cert: [cert] });
+const server = await startServer();
 const port = server.origin.port;
 
 function fakeAuth() {
@@ -35,6 +27,7 @@ function fakeAuth() {
 
 const seedClient = new secretManager.v1.SecretManagerServiceClient({
   apiEndpoint: 'localhost',
+  sslCreds: grpc.credentials.createInsecure(),
   port,
   auth: fakeAuth(),
 });
@@ -51,7 +44,7 @@ await seedClient.close();
 const Original = secretManager.v1.SecretManagerServiceClient;
 class FakeServerClient extends Original {
   constructor(opts) {
-    super({ apiEndpoint: 'localhost', port, auth: fakeAuth(), ...(opts ?? {}) });
+    super({ apiEndpoint: 'localhost', sslCreds: grpc.credentials.createInsecure(), port, auth: fakeAuth(), ...(opts ?? {}) });
   }
 }
 Object.defineProperty(secretManager.v1, 'SecretManagerServiceClient', {
@@ -77,7 +70,6 @@ try {
 
 try {
   server.forceShutdown();
-  reset();
 } catch {
   // ignore
 }

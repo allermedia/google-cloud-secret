@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## v2.0.0 - 2026-07-28
+
+### Breaking
+
+- package is ESM only, the rollup CJS build and the `lib/` artifact are dropped. Requires node `>=22`
+- default exports are removed, use the named exports `ConcurrentSecret` and `startServer`
+- fake server state is now kept per server instance instead of in a module-level map
+  - module exports `reset()` and `getSecret(name)` are removed, use `server.reset()` and `server.getSecret(name)` on the started server
+  - the backing store is exposed as `server.secrets` and a prefilled store can be passed with `startServer({ secrets })`
+  - the fake service implementation is exported as `FakeSecretManager` for custom composition
+- fake server `startServer` defaults to port 0, letting the OS assign a free port, instead of a random port in the narrow 50000-50999 range that could collide between concurrent servers. An explicit `port` option still works
+
+### Additions
+
+- `startServer` accepts a `credentials` option with server credentials, taking precedence over `cert`
+- fake server defaults to insecure credentials when neither `cert` nor `credentials` is given — connect the client with `sslCreds: grpc.credentials.createInsecure()`. No more mkcert/TLS requirement to run tests, TLS is opt-in via `cert`
+- type-check src and tests with `npm run test:types` in `posttest`
+
+### Fixes
+
+- `callOptions` option type union had a precedence bug hiding the plain object form, now `(() => CallOptions) | CallOptions`
+- `updateMethod` and `optimisticUpdate` function types accept sync return values, which always worked at runtime
+
+- fake server resolves google protos with `createRequire` from its own location instead of cwd-relative `./node_modules` paths, making the published fake-server entry work regardless of cwd and package manager layout
+- fake server `ListSecretVersions` for a non-existing secret responds with `NOT_FOUND` instead of crashing on a typo
+- fake server `DisableSecretVersion` for a non-existing version responds with `NOT_FOUND` instead of crashing
+
 ## v1.0.5 - 2026-03-07
 
 - tsconfig modification resulted in tiny update of type declarations

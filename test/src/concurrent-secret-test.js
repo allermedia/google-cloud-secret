@@ -1,14 +1,15 @@
 import { randomInt } from 'node:crypto';
 
+import { startServer } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
 import secretManager from '@google-cloud/secret-manager';
+import * as grpc from '@grpc/grpc-js';
 import * as ck from 'chronokinesis';
 
 import { ConcurrentSecret } from '../../src/index.js';
 import { fakeAuth } from '../helpers/fake-auth.js';
-import { startServer, reset } from '../helpers/fake-server.js';
 
 describe('concurrent secret', () => {
-  /** @type {import('@grpc/grpc-js').Server} */
+  /** @type {Awaited<ReturnType<typeof startServer>>} */
   let server;
   /** @type {import('@google-cloud/secret-manager').SecretManagerServiceClient} */
   let client;
@@ -16,14 +17,14 @@ describe('concurrent secret', () => {
     server = await startServer();
     client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
+      sslCreds: grpc.credentials.createInsecure(),
       port: server.origin.port,
       auth: fakeAuth(),
     });
   });
   after(async () => {
-    client = await client.close();
-    server = server?.forceShutdown();
-    reset();
+    await client.close();
+    server?.forceShutdown();
   });
   after(ck.reset);
 

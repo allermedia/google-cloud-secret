@@ -19,7 +19,7 @@ Concurrent safe update of google cloud secret. No rocket science, just rely on s
     - [`secretsCache.has(name)`](#secretscachehasname)
 - [IAM Policy](#iam-policy)
 - [Testing](#testing)
-  - [Make certificates with mkcert ca](#make-certificates-with-mkcert-ca)
+  - [Optional: run the fake server with TLS](#optional-run-the-fake-server-with-tls)
   - [Run tests](#run-tests)
   - [Fake google secret manager server](#fake-google-secret-manager-server)
 - [Call options](#call-options)
@@ -243,21 +243,16 @@ resource "google_secret_manager_secret_iam_policy" "rotated_by_app_secret_policy
 
 ## Testing
 
-Tests are ran against a fake grpc Secret Manager server. Package `@google-cloud/secret-manager` requires TLS so a cert has to be created.
+Tests are ran against a fake grpc Secret Manager server. By default the fake server runs without TLS — the client bypasses it with `sslCreds: grpc.credentials.createInsecure()` — so no certificates are needed.
 
-### Make certificates with mkcert ca
+### Optional: run the fake server with TLS
 
-To add mkcert ca run this command once:
+To test with a real TLS channel instead, pass certs to `startServer({ cert: [{ private_key, cert_chain }] })` and drop the `sslCreds` client option. The client then verifies the cert against the system CA store, so run node with `--use-system-ca` and use a locally trusted cert, e.g. from [mkcert](https://github.com/FiloSottile/mkcert):
 
 ```sh
 brew install mkcert
 mkcert -install
-```
-
-Generate certificates
-
-```sh
-md -p ./tmp/mkcert
+mkdir -p ./tmp/mkcert
 mkcert -key-file ./tmp/mkcert/dev-key.pem -cert-file ./tmp/mkcert/dev-cert.pem localhost
 ```
 
@@ -272,33 +267,25 @@ npm t
 
 The package ships with a fake google secret manager gRPC server to facilitate testing your library.
 
-To prepare for running fake server follow [make certs](#make-certificates-with-mkcert-ca) before starting.
-
 ```javascript
 import { randomInt } from 'node:crypto';
-import fs from 'node:fs';
 
 import secretManager from '@google-cloud/secret-manager';
+import * as grpc from '@grpc/grpc-js';
 import * as ck from 'chronokinesis';
 
 import { ConcurrentSecret } from '@aller/google-cloud-secret';
 
-import { startServer, reset } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
+import { startServer } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
 
 describe('concurrent secret', () => {
   let server;
   let client;
   before('grpc server', async () => {
-    server = await startServer({
-      cert: [
-        {
-          private_key: fs.readFileSync('./tmp/mkcert/dev-key.pem'),
-          cert_chain: fs.readFileSync('./tmp/mkcert/dev-cert.pem'),
-        },
-      ],
-    });
+    server = await startServer();
     client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
+      sslCreds: grpc.credentials.createInsecure(),
       port: server.origin.port,
       // Faking auth client makes test run faster
       auth: {
@@ -318,13 +305,12 @@ describe('concurrent secret', () => {
   after(async () => {
     client = await client.close();
     server = server?.forceShutdown();
-    reset();
   });
   after(ck.reset);
 
   describe('getLatestVersion(throwOnNotFound)', () => {
     it('getLatestVersion() null if not found', async () => {
-      const secretId = `my-secret-${randomInt(10000)}`;
+      const secretId = `my-secret-${randomInt(1000000)}`;
 
       await client.createSecret({
         parent: 'projects/1234',

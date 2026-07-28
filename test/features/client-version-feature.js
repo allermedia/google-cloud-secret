@@ -2,23 +2,25 @@ import { randomInt } from 'node:crypto';
 import path from 'node:path/posix';
 
 import { ConcurrentSecret } from '@aller/google-cloud-secret';
+import { startServer } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
 import secretManager from '@google-cloud/secret-manager';
+import * as grpc from '@grpc/grpc-js';
 
 import { fakeAuth } from '../helpers/fake-auth.js';
-import { startServer, reset } from '../helpers/fake-server.js';
 
 Feature('client versions', () => {
   const secretId = `my-secret-${randomInt(10000)}`;
   const parent = 'projects/1234';
   const secretName = path.join(parent, 'secrets', secretId);
 
-  /** @type {import('@grpc/grpc-js').Server} */
+  /** @type {Awaited<ReturnType<typeof startServer>>} */
   let server;
   before('grpc server and a secret', async () => {
     server = await startServer();
 
     const client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
+      sslCreds: grpc.credentials.createInsecure(),
       port: server.origin.port,
       auth: fakeAuth(),
     });
@@ -31,7 +33,6 @@ Feature('client versions', () => {
   });
   after(() => {
     server?.forceShutdown();
-    reset();
   });
 
   Scenario('v1 client is used to update secret', () => {
@@ -40,12 +41,13 @@ Feature('client versions', () => {
     before('grpc client', () => {
       client = new secretManager.v1.SecretManagerServiceClient({
         apiEndpoint: 'localhost',
+        sslCreds: grpc.credentials.createInsecure(),
         port: server.origin.port,
         auth: fakeAuth(),
       });
     });
     after(async () => {
-      client = await client.close();
+      await client.close();
     });
 
     /** @type {ConcurrentSecret} */
@@ -79,13 +81,15 @@ Feature('client versions', () => {
     /** @type {import('@google-cloud/secret-manager').SecretManagerServiceClient} */
     let client;
     before('grpc server', () => {
+      // @ts-ignore deprecated v1beta1 surface exists at runtime but not in the package types
       client = new secretManager.v1beta1.SecretManagerServiceClient({
         apiEndpoint: 'localhost',
+        sslCreds: grpc.credentials.createInsecure(),
         port: server.origin.port,
       });
     });
     after(async () => {
-      client = await client.close();
+      await client.close();
     });
 
     /** @type {ConcurrentSecret} */
@@ -119,13 +123,15 @@ Feature('client versions', () => {
     /** @type {import('@google-cloud/secret-manager').SecretManagerServiceClient} */
     let client;
     before('grpc server', () => {
+      // @ts-ignore v1beta2 client lacks a few v1 methods but satisfies the used surface
       client = new secretManager.v1beta2.SecretManagerServiceClient({
         apiEndpoint: 'localhost',
+        sslCreds: grpc.credentials.createInsecure(),
         port: server.origin.port,
       });
     });
     after(async () => {
-      client = await client.close();
+      await client.close();
     });
 
     /** @type {ConcurrentSecret} */

@@ -2,14 +2,15 @@ import { randomInt } from 'node:crypto';
 import path from 'node:path/posix';
 
 import { ConcurrentSecret } from '@aller/google-cloud-secret';
+import { startServer } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
 import secretManager from '@google-cloud/secret-manager';
+import * as grpc from '@grpc/grpc-js';
 import * as ck from 'chronokinesis';
 
 import { fakeAuth } from '../helpers/fake-auth.js';
-import { startServer, reset, getSecret } from '../helpers/fake-server.js';
 
 Feature('call options option', () => {
-  /** @type {import('@grpc/grpc-js').Server} */
+  /** @type {Awaited<ReturnType<typeof startServer>>} */
   let server;
   /** @type {import('@google-cloud/secret-manager').SecretManagerServiceClient} */
   let client;
@@ -17,19 +18,19 @@ Feature('call options option', () => {
     server = await startServer();
     client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
+      sslCreds: grpc.credentials.createInsecure(),
       port: server.origin.port,
       auth: fakeAuth(),
     });
   });
   after(async () => {
-    client = await client.close();
-    server = server?.forceShutdown();
-    reset();
+    await client.close();
+    server?.forceShutdown();
   });
   after(ck.reset);
 
   Scenario('update concurrent secret with call options function', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -67,12 +68,12 @@ Feature('call options option', () => {
     });
 
     Then('the request was made with call options headers', () => {
-      expect(getSecret(secretName).metadata.getMap()).to.have.property('traceparent', '00-traceid1-spanid-00');
+      expect(server.getSecret(secretName).metadata.getMap()).to.have.property('traceparent', '00-traceid1-spanid-00');
     });
   });
 
   Scenario('update concurrent secret with call options object', () => {
-    const secretId = `my-secret-${randomInt(10000)}`;
+    const secretId = `my-secret-${randomInt(1000000)}`;
     const parent = 'projects/1234';
     const secretName = path.join(parent, 'secrets', secretId);
 
@@ -108,7 +109,7 @@ Feature('call options option', () => {
     });
 
     Then('the request was made with call options headers', () => {
-      expect(getSecret(secretName).metadata.getMap()).to.have.property('traceparent', '00-traceid2-spanid-00');
+      expect(server.getSecret(secretName).metadata.getMap()).to.have.property('traceparent', '00-traceid2-spanid-00');
     });
   });
 });

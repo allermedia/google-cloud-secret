@@ -2,14 +2,15 @@ import { randomInt } from 'node:crypto';
 import path from 'node:path/posix';
 
 import { ConcurrentSecret } from '@aller/google-cloud-secret';
+import { startServer, RpcCodes } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
 import secretManager from '@google-cloud/secret-manager';
+import * as grpc from '@grpc/grpc-js';
 import * as ck from 'chronokinesis';
 
 import { fakeAuth } from '../helpers/fake-auth.js';
-import { startServer, RpcCodes, reset } from '../helpers/fake-server.js';
 
 Feature('update concurrent secret', () => {
-  /** @type {import('@grpc/grpc-js').Server} */
+  /** @type {Awaited<ReturnType<typeof startServer>>} */
   let server;
   /** @type {import('@google-cloud/secret-manager').SecretManagerServiceClient} */
   let client;
@@ -17,14 +18,14 @@ Feature('update concurrent secret', () => {
     server = await startServer();
     client = new secretManager.v1.SecretManagerServiceClient({
       apiEndpoint: 'localhost',
+      sslCreds: grpc.credentials.createInsecure(),
       port: server.origin.port,
       auth: fakeAuth(),
     });
   });
   after(async () => {
-    client = await client.close();
-    server = server?.forceShutdown();
-    reset();
+    await client.close();
+    server?.forceShutdown();
   });
   after(ck.reset);
 
@@ -63,6 +64,7 @@ Feature('update concurrent secret', () => {
     And('another attempt to lock secret fails with PRECONDITION FAILED already disabled', async () => {
       const anotherConcurrentSecret = new ConcurrentSecret(secretName, {
         apiEndpoint: 'localhost',
+        sslCreds: grpc.credentials.createInsecure(),
         port: server.origin.port,
         auth: fakeAuth(),
       });

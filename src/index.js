@@ -86,7 +86,7 @@ export class ConcurrentSecret {
   }
   /**
    * Update secret with new version. Destroy the previous version on successful update.
-   * @param {(...args: any) => Promise<string | Buffer>} fn get new secret function, call this function if a lock was acheieved
+   * @param {(...args: any) => Promise<string | Buffer> | string | Buffer} fn get new secret function, call this function if a lock was acheieved
    * @param  {...any} args optional arguments to function
    * @returns {Promise<string | Buffer>} new secret version data
    */
@@ -229,8 +229,6 @@ export class ConcurrentSecret {
   }
 }
 
-export default ConcurrentSecret;
-
 export class CachedSecret extends ConcurrentSecret {
   /**
    * @param {string} name
@@ -248,7 +246,7 @@ export class CachedSecret extends ConcurrentSecret {
 
     /**
      * Update secret value function
-     * @type {(...args: any) => Promise<string|Buffer>}
+     * @type {(...args: any) => Promise<string|Buffer>|string|Buffer}
      */
     this.updateMethod = options?.updateMethod;
 
@@ -383,7 +381,7 @@ export class SecretsCache {
    * Set cached secret
    * @param {string} name
    * @param {string} [initialValue] initial value
-   * @param {(options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string|Buffer>} [updateMethod] function to use when to update secret with new value, if omitted return latest secret version data
+   * @param {(options: LRUCache.FetcherOptions<string, CachedSecret, any>) => Promise<string|Buffer>|string|Buffer} [updateMethod] function to use when to update secret with new value, if omitted return latest secret version data
    * @param {concurrentSecretOptions & cachedSetSecretOptions} [options] cached secret options, plus ttl which is passed to underlying cache
    */
   set(name, initialValue, updateMethod, options) {
@@ -411,13 +409,13 @@ export class SecretsCache {
 /**
  * @typedef {object} concurrentSecretOptions
  * @property {number} [gracePeriodMs] lock grace period in milliseconds, continue if secret is locked beyond grace period, default is 60000ms
- * @property {()=>import('google-gax').CallOptions|import('google-gax').CallOptions} [callOptions] optional function to pass other args to pass to each request, tracing for instance
+ * @property {(() => import('google-gax').CallOptions) | import('google-gax').CallOptions} [callOptions] optional function to pass other args to pass to each request, tracing for instance
  *
  * @typedef {object} cachedSetSecretOptions
  * @property {number} [ttl] Time to live
  *
  * @typedef {object} cachedSecretOptions
- * @property {(...args: any) => Promise<string|Buffer>} [updateMethod] use this method to update with new secret value
+ * @property {(...args: any) => Promise<string|Buffer>|string|Buffer} [updateMethod] use this method to update with new secret value
  * @property {import('google-gax').ClientOptions | import('@google-cloud/secret-manager').v1.SecretManagerServiceClient} [client] Secret Manager client instance or the options for a new one
  * @property {string} [versionName] version name
  */
