@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v2.1.0 - 2026-08-17
+
+- support `@google-cloud/secret-manager@7`, peer range widened to `>=6`
+- test against `@google-cloud/secret-manager@7` and `google-gax@6`
+- fake server resolves proto directories with platform `node:path` instead of `node:path/posix`, fixing startup on Windows — posix path is still used for secret resource names
+
 ## v2.0.0 - 2026-07-28
 
 ### Breaking

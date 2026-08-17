@@ -3,6 +3,7 @@
 Concurrent safe update of google cloud secret. No rocket science, just rely on secret etag to give a hint if secret has been locked by someone else.
 
 [![Build](https://github.com/allermedia/google-secret/actions/workflows/build.yaml/badge.svg)](https://github.com/allermedia/google-secret/actions/workflows/build.yaml)
+[![Build (Windows)](https://github.com/allermedia/google-secret/actions/workflows/build-windows.yaml/badge.svg)](https://github.com/allermedia/google-secret/actions/workflows/build-windows.yaml)
 
 <!-- toc -->
 

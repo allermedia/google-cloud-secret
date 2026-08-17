@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import path from 'node:path/posix';
 
 import * as grpc from '@grpc/grpc-js';
@@ -440,9 +441,9 @@ export class FakeSecretManager {
 
 const nodeRequire = createRequire(import.meta.url);
 const secretManagerPkg = nodeRequire.resolve('@google-cloud/secret-manager/package.json');
-const secretManagerProtoDir = path.join(path.dirname(secretManagerPkg), 'build/protos');
+const secretManagerProtoDir = join(dirname(secretManagerPkg), 'build/protos');
 // google-gax does not export its package.json, resolve protos relative to its main entry (build/src/index.js)
-const gaxProtoDir = path.join(path.dirname(createRequire(secretManagerPkg).resolve('google-gax')), '../protos');
+const gaxProtoDir = join(dirname(createRequire(secretManagerPkg).resolve('google-gax')), '../protos');
 
 const servicePackageDefinition = protoLoader.loadSync(['google/cloud/secretmanager/v1/service.proto'], {
   includeDirs: [gaxProtoDir, secretManagerProtoDir],
