@@ -5,7 +5,7 @@ import Mocha from 'mocha';
 import { ExampleEvaluator } from 'texample';
 
 import packageDefinition from '../package.json' with { type: 'json' };
-import { startServer } from '../src/fake-server/fake-secret-manager-server.js';
+import { startServer } from '../src/emulator/index.js';
 
 const server = await startServer();
 const port = server.origin.port;
@@ -42,7 +42,7 @@ for (const id of ['my-concurrent-secret-1', 'my-concurrent-secret-2']) {
 await seedClient.close();
 
 const Original = secretManager.v1.SecretManagerServiceClient;
-class FakeServerClient extends Original {
+class EmulatorClient extends Original {
   constructor(opts) {
     super({ apiEndpoint: 'localhost', sslCreds: grpc.credentials.createInsecure(), port, auth: fakeAuth(), ...(opts ?? {}) });
   }
@@ -51,7 +51,7 @@ Object.defineProperty(secretManager.v1, 'SecretManagerServiceClient', {
   configurable: true,
   enumerable: true,
   get() {
-    return FakeServerClient;
+    return EmulatorClient;
   },
 });
 

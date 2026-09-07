@@ -13,11 +13,11 @@ import { RpcCodes } from './rpc-codes.js';
 
 export { RpcCodes } from './rpc-codes.js';
 
-const debug = Debug('aller:google-cloud-secret:fake-server');
+const debug = Debug('aller:google-cloud-secret:emulator');
 
 const validSecretNamePattern = /^projects\/\d+\/secrets\/[\w-]+$/;
 
-class FakeRpcError extends Error {
+class EmulatorRpcError extends Error {
   /**
    * @param {string} message
    * @param {number} code
@@ -28,7 +28,7 @@ class FakeRpcError extends Error {
   }
 }
 
-class FakeRpcMismatchingEtagError extends FakeRpcError {
+class EmulatorRpcMismatchingEtagError extends EmulatorRpcError {
   constructor() {
     super(
       "The etag provided in the request does not match the resource's current etag. Please retry the whole read-modify-write with exponential backoff.",
@@ -37,7 +37,7 @@ class FakeRpcMismatchingEtagError extends FakeRpcError {
   }
 }
 
-class FakeRpcSecretNotFoundError extends FakeRpcError {
+class EmulatorRpcSecretNotFoundError extends EmulatorRpcError {
   /**
    * @param {string} name secret name
    */
@@ -47,14 +47,14 @@ class FakeRpcSecretNotFoundError extends FakeRpcError {
 }
 
 /**
- * Fake Secret Manager service implementation
+ * Secret Manager emulator service implementation
  */
-export class FakeSecretManager {
+export class SecretManagerEmulator {
   /**
-   * @param {Map<string, FakeSecretData>} [secrets] backing secret store, e.g. prefilled with secrets, defaults to a new empty store
+   * @param {Map<string, EmulatorSecret>} [secrets] backing secret store, e.g. prefilled with secrets, defaults to a new empty store
    */
   constructor(secrets) {
-    /** @type {Map<string, FakeSecretData>} */
+    /** @type {Map<string, EmulatorSecret>} */
     this.secrets = secrets ?? new Map();
   }
 
@@ -68,11 +68,11 @@ export class FakeSecretManager {
     const name = path.join(payload.parent, 'secrets', payload.secretId);
 
     if (!validSecretNamePattern.test(name)) {
-      return respond(new FakeRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
+      return respond(new EmulatorRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
     }
 
     if (this.secrets.has(name)) {
-      return respond(new FakeRpcError(`${name} already exists`, RpcCodes.ALREADY_EXISTS));
+      return respond(new EmulatorRpcError(`${name} already exists`, RpcCodes.ALREADY_EXISTS));
     }
 
     debug('create secret %s', name);
@@ -118,15 +118,15 @@ export class FakeSecretManager {
     const name = req.request.name;
 
     if (!validSecretNamePattern.test(name)) {
-      return respond(new FakeRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
+      return respond(new EmulatorRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
     }
 
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(name))) {
-      return respond(new FakeRpcSecretNotFoundError(name));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(name))) {
+      return respond(new EmulatorRpcSecretNotFoundError(name));
     }
 
-    respond(null, { ...fakeSecret.secret });
+    respond(null, { ...storedSecret.secret });
   }
 
   /**
@@ -137,13 +137,13 @@ export class FakeSecretManager {
     const payload = req.request;
 
     if (!validSecretNamePattern.test(payload.parent)) {
-      return respond(new FakeRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
+      return respond(new EmulatorRpcError('Invalid resource field value in the request.', RpcCodes.INVALID_ARGUMENT));
     }
 
     const parentSecret = this.secrets.get(payload.parent);
 
     if (!parentSecret) {
-      return respond(new FakeRpcSecretNotFoundError(payload.parent));
+      return respond(new EmulatorRpcSecretNotFoundError(payload.parent));
     }
 
     const now = new Date();
@@ -151,7 +151,7 @@ export class FakeSecretManager {
     debug('add secret version to %s', payload.parent, req.metadata.getMap());
 
     /** @type {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecretVersion} */
-    const fakeVersion = {
+    const secretVersion = {
       name: path.join(payload.parent, 'versions', (parentSecret.versions.length + 1).toString()),
       etag: generateEtag(),
       state: 'ENABLED',
@@ -162,11 +162,11 @@ export class FakeSecretManager {
     };
 
     parentSecret.versions.unshift({
-      version: fakeVersion,
+      version: secretVersion,
       ...(payload.payload.data && { data: Buffer.from(payload.payload.data) }),
     });
 
-    respond(null, fakeVersion);
+    respond(null, secretVersion);
   }
 
   /**
@@ -180,24 +180,24 @@ export class FakeSecretManager {
     parts.splice(-2);
     const parent = path.join(...parts);
 
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(parent))) {
-      return respond(new FakeRpcSecretNotFoundError(parent));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(parent))) {
+      return respond(new EmulatorRpcSecretNotFoundError(parent));
     }
 
-    const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
-    if (!fakeVersion) {
-      return respond(new FakeRpcError(`Secret Version [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
+    const storedVersion = storedSecret.versions.find((v) => v.version.name === payload.name);
+    if (!storedVersion) {
+      return respond(new EmulatorRpcError(`Secret Version [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
     }
 
-    if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      return respond(new FakeRpcMismatchingEtagError());
+    if (payload.etag && payload.etag !== storedVersion.version.etag) {
+      return respond(new EmulatorRpcMismatchingEtagError());
     }
 
-    fakeVersion.version.state = 'DISABLED';
-    fakeVersion.version.etag = generateEtag();
+    storedVersion.version.state = 'DISABLED';
+    storedVersion.version.etag = generateEtag();
 
-    respond(null, fakeVersion.version);
+    respond(null, storedVersion.version);
   }
 
   /**
@@ -211,24 +211,24 @@ export class FakeSecretManager {
     parts.splice(-2);
     const parent = path.join(...parts);
 
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(parent))) {
-      return respond(new FakeRpcSecretNotFoundError(parent));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(parent))) {
+      return respond(new EmulatorRpcSecretNotFoundError(parent));
     }
 
-    const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
-    if (!fakeVersion) {
-      return respond(new FakeRpcError(`Secret Version [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
+    const storedVersion = storedSecret.versions.find((v) => v.version.name === payload.name);
+    if (!storedVersion) {
+      return respond(new EmulatorRpcError(`Secret Version [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
     }
 
-    if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      return respond(new FakeRpcMismatchingEtagError());
+    if (payload.etag && payload.etag !== storedVersion.version.etag) {
+      return respond(new EmulatorRpcMismatchingEtagError());
     }
 
-    fakeVersion.version.state = 'ENABLED';
-    fakeVersion.version.etag = generateEtag();
+    storedVersion.version.state = 'ENABLED';
+    storedVersion.version.etag = generateEtag();
 
-    respond(null, fakeVersion.version);
+    respond(null, storedVersion.version);
   }
 
   /**
@@ -242,26 +242,26 @@ export class FakeSecretManager {
     const [, version] = parts.splice(-2);
     const parent = path.join(...parts);
 
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(parent))) {
-      return respond(new FakeRpcSecretNotFoundError(parent));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(parent))) {
+      return respond(new EmulatorRpcSecretNotFoundError(parent));
     }
 
-    fakeSecret.metadata = req.metadata;
+    storedSecret.metadata = req.metadata;
 
-    const fakeVersions = fakeSecret.versions;
-    const fakeVersion = version === 'latest' ? fakeVersions[0] : fakeVersions.find((v) => v.version.name === payload.name);
+    const storedVersions = storedSecret.versions;
+    const storedVersion = version === 'latest' ? storedVersions[0] : storedVersions.find((v) => v.version.name === payload.name);
 
-    if (!fakeVersion) {
+    if (!storedVersion) {
       return respond(
-        new FakeRpcError(
-          !fakeVersions.length ? `Secret [${parent}] not found or has no versions.` : `Secret Version [${payload.name}] not found.`,
+        new EmulatorRpcError(
+          !storedVersions.length ? `Secret [${parent}] not found or has no versions.` : `Secret Version [${payload.name}] not found.`,
           RpcCodes.NOT_FOUND
         )
       );
     }
 
-    respond(null, fakeVersion.version);
+    respond(null, storedVersion.version);
   }
 
   /**
@@ -270,12 +270,12 @@ export class FakeSecretManager {
    * @param {CallableFunction} respond
    */
   ListSecretVersions(req, respond) {
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(req.request.parent))) {
-      return respond(new FakeRpcSecretNotFoundError(req.request.parent));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(req.request.parent))) {
+      return respond(new EmulatorRpcSecretNotFoundError(req.request.parent));
     }
 
-    const versions = fakeSecret.versions.map((v) => v.version);
+    const versions = storedSecret.versions.map((v) => v.version);
 
     /** @type {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.IListSecretVersionsResponse} */
     const response = {
@@ -297,58 +297,58 @@ export class FakeSecretManager {
     parts.splice(-2);
     const parent = path.join(...parts);
 
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(parent))) {
-      return respond(new FakeRpcSecretNotFoundError(parent));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(parent))) {
+      return respond(new EmulatorRpcSecretNotFoundError(parent));
     }
 
-    const fakeVersion = fakeSecret.versions.find((v) => v.version.name === payload.name);
+    const storedVersion = storedSecret.versions.find((v) => v.version.name === payload.name);
 
-    if (!fakeVersion) {
-      return respond(new FakeRpcError(`Secret Version [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
+    if (!storedVersion) {
+      return respond(new EmulatorRpcError(`Secret Version [${payload.name}] not found.`, RpcCodes.NOT_FOUND));
     }
 
-    if (fakeVersion.version.state === 'DESTROYED') {
-      return respond(new FakeRpcError('SecretVersion.state is already DESTROYED.', RpcCodes.FAILED_PRECONDITION));
+    if (storedVersion.version.state === 'DESTROYED') {
+      return respond(new EmulatorRpcError('SecretVersion.state is already DESTROYED.', RpcCodes.FAILED_PRECONDITION));
     }
 
-    if (fakeVersion.version.scheduledDestroyTime) {
-      return respond(new FakeRpcError('SecretVersion is already scheduled for DESTRUCTION.', RpcCodes.FAILED_PRECONDITION));
+    if (storedVersion.version.scheduledDestroyTime) {
+      return respond(new EmulatorRpcError('SecretVersion is already scheduled for DESTRUCTION.', RpcCodes.FAILED_PRECONDITION));
     }
 
-    if (payload.etag && payload.etag !== fakeVersion.version.etag) {
-      return respond(new FakeRpcMismatchingEtagError());
+    if (payload.etag && payload.etag !== storedVersion.version.etag) {
+      return respond(new EmulatorRpcMismatchingEtagError());
     }
 
     const now = new Date();
 
-    fakeVersion.version.etag = generateEtag();
-    fakeSecret.metadata = req.metadata;
+    storedVersion.version.etag = generateEtag();
+    storedSecret.metadata = req.metadata;
 
-    if (fakeSecret.secret.versionDestroyTtl) {
-      fakeVersion.version.state = 'DISABLED';
+    if (storedSecret.secret.versionDestroyTtl) {
+      storedVersion.version.state = 'DISABLED';
 
-      const seconds = fakeSecret.secret.versionDestroyTtl.seconds;
+      const seconds = storedSecret.secret.versionDestroyTtl.seconds;
       const nSeconds = seconds instanceof Long ? seconds.toNumber() : Number(seconds);
 
       const destroy = new Date(now);
       destroy.setSeconds(destroy.getSeconds() + nSeconds);
-      destroy.setMilliseconds(destroy.getUTCMilliseconds() + (fakeSecret.secret.versionDestroyTtl.nanos ?? 0) / 1e6);
+      destroy.setMilliseconds(destroy.getUTCMilliseconds() + (storedSecret.secret.versionDestroyTtl.nanos ?? 0) / 1e6);
 
-      fakeVersion.version.scheduledDestroyTime = {
+      storedVersion.version.scheduledDestroyTime = {
         nanos: destroy.getUTCMilliseconds() * 1e6,
         seconds: Math.floor(destroy.setUTCMilliseconds(0) / 1000),
       };
     } else {
-      fakeVersion.version.state = 'DESTROYED';
+      storedVersion.version.state = 'DESTROYED';
 
-      fakeVersion.version.destroyTime = {
+      storedVersion.version.destroyTime = {
         nanos: now.getUTCMilliseconds() * 1e6,
         seconds: Math.floor(now.setUTCMilliseconds(0) / 1000),
       };
     }
 
-    respond(null, fakeVersion.version);
+    respond(null, storedVersion.version);
   }
 
   /**
@@ -360,28 +360,28 @@ export class FakeSecretManager {
     const payload = req.request;
     const name = payload.secret?.name;
 
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(name))) {
-      return respond(new FakeRpcSecretNotFoundError(name));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(name))) {
+      return respond(new EmulatorRpcSecretNotFoundError(name));
     }
 
-    if (payload.secret?.etag && payload.secret?.etag !== fakeSecret.secret.etag) {
-      return respond(new FakeRpcMismatchingEtagError());
+    if (payload.secret?.etag && payload.secret?.etag !== storedSecret.secret.etag) {
+      return respond(new EmulatorRpcMismatchingEtagError());
     }
 
     if (payload.updateMask?.paths?.length) {
       for (const prop of payload.updateMask.paths) {
         // @ts-ignore
-        fakeSecret.secret[prop] = payload.secret[prop];
+        storedSecret.secret[prop] = payload.secret[prop];
       }
     }
 
     debug('secret %s was updated', name, req.metadata.getMap());
 
-    fakeSecret.metadata = req.metadata;
-    fakeSecret.secret.etag = generateEtag();
+    storedSecret.metadata = req.metadata;
+    storedSecret.secret.etag = generateEtag();
 
-    respond(null, fakeSecret.secret);
+    respond(null, storedSecret.secret);
   }
 
   /**
@@ -395,24 +395,24 @@ export class FakeSecretManager {
     const [, version] = parts.splice(-2);
     const parent = path.join(...parts);
 
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(parent))) {
-      return respond(new FakeRpcSecretNotFoundError(parent));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(parent))) {
+      return respond(new EmulatorRpcSecretNotFoundError(parent));
     }
 
-    const fakeVersions = fakeSecret.versions;
-    const fakeVersion = version === 'latest' ? fakeVersions[0] : fakeVersions.find((v) => v.version.name === payload.name);
+    const storedVersions = storedSecret.versions;
+    const storedVersion = version === 'latest' ? storedVersions[0] : storedVersions.find((v) => v.version.name === payload.name);
 
-    if (!fakeVersion) {
+    if (!storedVersion) {
       return respond(
-        new FakeRpcError(
-          !fakeVersions.length ? `Secret [${parent}] not found or has no versions.` : `Secret Version [${payload.name}] not found.`,
+        new EmulatorRpcError(
+          !storedVersions.length ? `Secret [${parent}] not found or has no versions.` : `Secret Version [${payload.name}] not found.`,
           RpcCodes.NOT_FOUND
         )
       );
     }
 
-    respond(null, { name: fakeVersion.version.name, payload: { data: fakeVersion.data } });
+    respond(null, { name: storedVersion.version.name, payload: { data: storedVersion.data } });
   }
 
   /**
@@ -424,13 +424,13 @@ export class FakeSecretManager {
     const payload = req.request;
     const { name, etag } = payload;
 
-    let fakeSecret;
-    if (!(fakeSecret = this.secrets.get(name))) {
-      return respond(new FakeRpcSecretNotFoundError(name));
+    let storedSecret;
+    if (!(storedSecret = this.secrets.get(name))) {
+      return respond(new EmulatorRpcSecretNotFoundError(name));
     }
 
-    if (etag && etag !== fakeSecret.secret.etag) {
-      return respond(new FakeRpcMismatchingEtagError());
+    if (etag && etag !== storedSecret.secret.etag) {
+      return respond(new EmulatorRpcMismatchingEtagError());
     }
 
     this.secrets.delete(name);
@@ -452,16 +452,16 @@ const servicePackageDefinition = protoLoader.loadSync(['google/cloud/secretmanag
 const serviceProto = grpc.loadPackageDefinition(servicePackageDefinition);
 
 /**
- * Start fake server with its own secret store, or a prefilled one passed in options
- * @param {startServerOptions} [options] Fake gRPC server options
- * @returns {Promise<FakeSecretManagerServer>} Fake gRPC Google Secret Manager server
+ * Start emulator with its own secret store, or a prefilled one passed in options
+ * @param {EmulatorOptions} [options] Emulator options
+ * @returns {Promise<EmulatorServer>} Secret Manager gRPC emulator server
  */
 export async function startServer(options) {
   const requestedPort = options?.port ?? 0;
   const credentials =
     options?.credentials ??
     (options?.cert ? grpc.ServerCredentials.createSsl(null, options.cert, false) : grpc.ServerCredentials.createInsecure());
-  const service = new FakeSecretManager(options?.secrets);
+  const service = new SecretManagerEmulator(options?.secrets);
   const secrets = service.secrets;
 
   debug('start server at port %d', requestedPort);
@@ -469,7 +469,7 @@ export async function startServer(options) {
 
   // @ts-ignore
   server.addService(serviceProto.google.cloud.secretmanager.v1.SecretManagerService.service, service);
-  debug('added service fake implementation');
+  debug('added emulator service implementation');
 
   //// import { ReflectionService } from '@grpc/reflection';
   // const reflection = new ReflectionService(servicePackageDefinition);
@@ -509,7 +509,7 @@ export async function startServer(options) {
     },
   });
 
-  return /** @type {FakeSecretManagerServer} */ (server);
+  return /** @type {EmulatorServer} */ (server);
 }
 
 function generateEtag() {
@@ -519,23 +519,23 @@ function generateEtag() {
 /**
  * @typedef {import('@grpc/grpc-js').Server & {
  *   origin: { hostname: string, port: number },
- *   secrets: Map<string, FakeSecretData>,
- *   getSecret: (name: string) => FakeSecretData | undefined,
+ *   secrets: Map<string, EmulatorSecret>,
+ *   getSecret: (name: string) => EmulatorSecret | undefined,
  *   reset: () => void,
- * }} FakeSecretManagerServer
+ * }} EmulatorServer
  *
- * @typedef {object} startServerOptions
+ * @typedef {object} EmulatorOptions
  * @property {import('@grpc/grpc-js').KeyCertPair[]} [cert] server TLS certs, e.g. from mkcert, starts a TLS server
  * @property {import('@grpc/grpc-js').ServerCredentials} [credentials] server credentials, takes precedence over cert; defaults to SSL credentials built from cert, or insecure credentials when neither is given — then connect the client with `sslCreds: grpc.credentials.createInsecure()`
  * @property {number} [port] gRPC server port, defaults to 0 which lets the OS assign a free port
- * @property {Map<string, FakeSecretData>} [secrets] backing secret store, e.g. prefilled with secrets, defaults to a new empty store
+ * @property {Map<string, EmulatorSecret>} [secrets] backing secret store, e.g. prefilled with secrets, defaults to a new empty store
  *
- * @typedef {object} FakeSecretVersion
+ * @typedef {object} EmulatorSecretVersion
  * @property {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecretVersion} version secret versions
  * @property {Buffer} [data] secret data
  *
- * @typedef {object} FakeSecretData
+ * @typedef {object} EmulatorSecret
  * @property {import('@google-cloud/secret-manager').protos.google.cloud.secretmanager.v1.ISecret} secret Secret
- * @property {FakeSecretVersion[]} versions secret versions
+ * @property {EmulatorSecretVersion[]} versions secret versions
  * @property {import('@grpc/grpc-js').Metadata} metadata last request metadata
  */

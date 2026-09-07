@@ -3,7 +3,7 @@ import path from 'node:path/posix';
 import { mock } from 'node:test';
 
 import { SecretsCache } from '@aller/google-cloud-secret';
-import { startServer, RpcCodes } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
+import { startServer, RpcCodes } from '@aller/google-cloud-secret/emulator';
 import secretManager from '@google-cloud/secret-manager';
 import * as grpc from '@grpc/grpc-js';
 

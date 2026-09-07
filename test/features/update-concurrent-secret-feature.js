@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto';
 import path from 'node:path/posix';
 
 import { ConcurrentSecret } from '@aller/google-cloud-secret';
-import { startServer, RpcCodes } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
+import { startServer, RpcCodes } from '@aller/google-cloud-secret/emulator';
 import secretManager from '@google-cloud/secret-manager';
 import * as grpc from '@grpc/grpc-js';
 import * as ck from 'chronokinesis';

@@ -20,9 +20,9 @@ Concurrent safe update of google cloud secret. No rocket science, just rely on s
     - [`secretsCache.has(name)`](#secretscachehasname)
 - [IAM Policy](#iam-policy)
 - [Testing](#testing)
-  - [Optional: run the fake server with TLS](#optional-run-the-fake-server-with-tls)
+  - [Optional: run the emulator with TLS](#optional-run-the-emulator-with-tls)
   - [Run tests](#run-tests)
-  - [Fake google secret manager server](#fake-google-secret-manager-server)
+  - [Secret Manager emulator](#secret-manager-emulator)
 - [Call options](#call-options)
 - [Debug](#debug)
   - [Run with gRPC DEBUG](#run-with-grpc-debug)
@@ -244,9 +244,9 @@ resource "google_secret_manager_secret_iam_policy" "rotated_by_app_secret_policy
 
 ## Testing
 
-Tests are ran against a fake grpc Secret Manager server. By default the fake server runs without TLS — the client bypasses it with `sslCreds: grpc.credentials.createInsecure()` — so no certificates are needed.
+Tests run against a Secret Manager gRPC emulator. By default the emulator runs without TLS — the client bypasses it with `sslCreds: grpc.credentials.createInsecure()` — so no certificates are needed.
 
-### Optional: run the fake server with TLS
+### Optional: run the emulator with TLS
 
 To test with a real TLS channel instead, pass certs to `startServer({ cert: [{ private_key, cert_chain }] })` and drop the `sslCreds` client option. The client then verifies the cert against the system CA store, so run node with `--use-system-ca` and use a locally trusted cert, e.g. from [mkcert](https://github.com/FiloSottile/mkcert):
 
@@ -264,9 +264,9 @@ npm i
 npm t
 ```
 
-### Fake google secret manager server
+### Secret Manager emulator
 
-The package ships with a fake google secret manager gRPC server to facilitate testing your library.
+The package ships with a Secret Manager gRPC emulator to facilitate testing your library.
 
 ```javascript
 import { randomInt } from 'node:crypto';
@@ -277,7 +277,7 @@ import * as ck from 'chronokinesis';
 
 import { ConcurrentSecret } from '@aller/google-cloud-secret';
 
-import { startServer } from '@aller/google-cloud-secret/fake-server/fake-secret-manager-server';
+import { startServer } from '@aller/google-cloud-secret/emulator';
 
 describe('concurrent secret', () => {
   let server;

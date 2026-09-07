@@ -1,7 +1,7 @@
 {
   "name": "@aller/google-cloud-secret",
   "description": "Concurrent update of google cloud secret",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "type": "module",
   "main": "./src/index.js",
   "types": "./types/index.d.ts",
@@ -22,9 +22,9 @@
       "types": "./types/index.d.ts",
       "default": "./src/index.js"
     },
-    "./fake-server/fake-secret-manager-server": {
+    "./emulator": {
       "types": "./types/index.d.ts",
-      "default": "./src/fake-server/fake-secret-manager-server.js"
+      "default": "./src/emulator/index.js"
     }
   },
   "engines": {
@@ -36,7 +36,7 @@
     "cache",
     "concurrent",
     "update",
-    "fake",
+    "emulator",
     "mock",
     "grpc"
   ],
@@ -88,11 +88,7 @@
   },
   "files": [
     "src",
-    "types/index.d*"
-  ],
-  "c8": {
-    "exclude": [
-      "src/fake-server"
-    ]
-  }
+    "types/index.d*",
+    "CHANGELOG.md"
+  ]
 }

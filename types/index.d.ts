@@ -160,25 +160,25 @@ declare module '@aller/google-cloud-secret' {
 	export {};
 }
 
-declare module '@aller/google-cloud-secret/fake-server/fake-secret-manager-server' {
+declare module '@aller/google-cloud-secret/emulator' {
 	import type { protos as protos_1 } from '@google-cloud/secret-manager';
 	import type { Metadata } from '@grpc/grpc-js';
 	/**
-	 * Start fake server with its own secret store, or a prefilled one passed in options
-	 * @param options Fake gRPC server options
-	 * @returns Fake gRPC Google Secret Manager server
+	 * Start emulator with its own secret store, or a prefilled one passed in options
+	 * @param options Emulator options
+	 * @returns Secret Manager gRPC emulator server
 	 */
-	export function startServer(options?: startServerOptions): Promise<FakeSecretManagerServer>;
+	export function startServer(options?: EmulatorOptions): Promise<EmulatorServer>;
 	/**
-	 * Fake Secret Manager service implementation
+	 * Secret Manager emulator service implementation
 	 */
-	export class FakeSecretManager {
+	export class SecretManagerEmulator {
 		/**
 		 * @param secrets backing secret store, e.g. prefilled with secrets, defaults to a new empty store
 		 */
-		constructor(secrets?: Map<string, FakeSecretData>);
+		constructor(secrets?: Map<string, EmulatorSecret>);
 		
-		secrets: Map<string, FakeSecretData>;
+		secrets: Map<string, EmulatorSecret>;
 		
 		CreateSecret(req: AddSecretRequest, respond: CallableFunction): any;
 		
@@ -218,16 +218,16 @@ declare module '@aller/google-cloud-secret/fake-server/fake-secret-manager-serve
 		 * */
 		DeleteSecret(req: DeleteSecretRequest, respond: CallableFunction): any;
 	}
-	export type FakeSecretManagerServer = import("@grpc/grpc-js").Server & {
+	export type EmulatorServer = import("@grpc/grpc-js").Server & {
 		origin: {
 			hostname: string;
 			port: number;
 		};
-		secrets: Map<string, FakeSecretData>;
-		getSecret: (name: string) => FakeSecretData | undefined;
+		secrets: Map<string, EmulatorSecret>;
+		getSecret: (name: string) => EmulatorSecret | undefined;
 		reset: () => void;
 	};
-	export type startServerOptions = {
+	export type EmulatorOptions = {
 		/**
 		 * server TLS certs, e.g. from mkcert, starts a TLS server
 		 */
@@ -243,9 +243,9 @@ declare module '@aller/google-cloud-secret/fake-server/fake-secret-manager-serve
 		/**
 		 * backing secret store, e.g. prefilled with secrets, defaults to a new empty store
 		 */
-		secrets?: Map<string, FakeSecretData>;
+		secrets?: Map<string, EmulatorSecret>;
 	};
-	export type FakeSecretVersion = {
+	export type EmulatorSecretVersion = {
 		/**
 		 * secret versions
 		 */
@@ -255,7 +255,7 @@ declare module '@aller/google-cloud-secret/fake-server/fake-secret-manager-serve
 		 */
 		data?: Buffer;
 	};
-	export type FakeSecretData = {
+	export type EmulatorSecret = {
 		/**
 		 * Secret
 		 */
@@ -263,7 +263,7 @@ declare module '@aller/google-cloud-secret/fake-server/fake-secret-manager-serve
 		/**
 		 * secret versions
 		 */
-		versions: FakeSecretVersion[];
+		versions: EmulatorSecretVersion[];
 		/**
 		 * last request metadata
 		 */

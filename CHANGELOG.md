@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v3.0.0 - 2026-09-07
+
+### Breaking
+
+- emulator entry moved from `@aller/google-cloud-secret/fake-server/fake-secret-manager-server` to `@aller/google-cloud-secret/emulator`
+- emulator debug namespace renamed from `aller:google-cloud-secret:fake-server` to `aller:google-cloud-secret:emulator`
+- emulator exports renamed: `FakeSecretManager` → `SecretManagerEmulator`, and types `FakeSecretManagerServer` → `EmulatorServer`, `startServerOptions` → `EmulatorOptions`, `FakeSecretData` → `EmulatorSecret`, `FakeSecretVersion` → `EmulatorSecretVersion`
+
 ## v2.1.0 - 2026-08-17
 
 - support `@google-cloud/secret-manager@7`, peer range widened to `>=6`

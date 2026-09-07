@@ -4,7 +4,7 @@ import secretManager from '@google-cloud/secret-manager';
 import Debug from 'debug';
 import { LRUCache } from 'lru-cache';
 
-import { RpcCodes } from './fake-server/rpc-codes.js';
+import { RpcCodes } from './emulator/rpc-codes.js';
 
 const debug = Debug('aller:google-cloud-secret');
 
