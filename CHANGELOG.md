@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Unreleased
+
+- generate toc with [@0dep/toc](https://npmjs.com/package/@0dep/toc)
+
 ## v3.0.0 - 2026-09-07
 
 ### Breaking

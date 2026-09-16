@@ -7,14 +7,14 @@
   "types": "./types/index.d.ts",
   "scripts": {
     "test": "mocha",
-    "posttest": "npm run lint && npm run build && npm run test:types && npm run test:md",
+    "posttest": "npm run build && npm run lint && npm run test:types && npm run test:md",
     "lint": "eslint . --cache && prettier . -c",
     "test:types": "tsc -p . && tsc -p test",
     "cov:html": "c8 -n src -r html -r text mocha",
     "test:lcov": "c8 -n src -r lcov -r text mocha",
     "test:md": "node --experimental-vm-modules --no-warnings ./scripts/texample-setup.js",
     "build": "dts-buddy && npm run toc",
-    "toc": "node ./scripts/toc.js",
+    "toc": "toc README.md",
     "prepublishOnly": "npm run build"
   },
   "exports": {
@@ -51,10 +51,12 @@
   "license": "MIT",
   "overrides": {
     "mocha": {
+      "serialize-javascript": "^7.1.0",
       "yargs": "^18.1.0"
     }
   },
   "devDependencies": {
+    "@0dep/toc": "^1.0.1",
     "@eslint/js": "^10.0.1",
     "@google-cloud/secret-manager": "^7.0.0",
     "@grpc/grpc-js": "^1.13.4",
