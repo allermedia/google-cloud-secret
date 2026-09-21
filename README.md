@@ -169,7 +169,7 @@ Get cached secret.
 
 #### `async secretsCache.update(name)`
 
-Update cached concurrent secret with new version by calling [`concurrentSecret.optimisticUpdate`](#concurrentsecretoptimisticupdatefn-args) with [`updateMethod`](#secretscachesetname-initialvalue-updateMethod-options).
+Update cached concurrent secret with new version by calling [`concurrentSecret.optimisticUpdate`](#concurrentsecretoptimisticupdatefn-args) with [`updateMethod`](#secretscachesetname-initialvalue-updatemethod-options).
 
 **Arguments:**
 

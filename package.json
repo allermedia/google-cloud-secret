@@ -1,7 +1,7 @@
 {
   "name": "@aller/google-cloud-secret",
   "description": "Concurrent update of google cloud secret",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "type": "module",
   "main": "./src/index.js",
   "types": "./types/index.d.ts",
@@ -14,7 +14,7 @@
     "test:lcov": "c8 -n src -r lcov -r text mocha",
     "test:md": "node --experimental-vm-modules --no-warnings ./scripts/texample-setup.js",
     "build": "dts-buddy && npm run toc",
-    "toc": "toc README.md",
+    "toc": "toc -c README.md",
     "prepublishOnly": "npm run build"
   },
   "exports": {
@@ -56,7 +56,7 @@
     }
   },
   "devDependencies": {
-    "@0dep/toc": "^1.0.1",
+    "@0dep/toc": "^2.1.0",
     "@eslint/js": "^10.0.1",
     "@google-cloud/secret-manager": "^7.0.0",
     "@grpc/grpc-js": "^1.13.4",
