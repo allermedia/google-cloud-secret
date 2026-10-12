@@ -2,7 +2,10 @@
 
 ## Unreleased
 
+## v3.0.1 - 2026-10-12
+
 - generate toc with [@0dep/toc](https://npmjs.com/package/@0dep/toc)
+- test suite runs on `mocha-scenarios` and mocha 12, replacing `mocha-cakes-2`
 
 ## v3.0.0 - 2026-09-07
 

@@ -49,12 +49,6 @@
     "url": "git+https://github.com/allermedia/google-cloud-secret.git"
   },
   "license": "MIT",
-  "overrides": {
-    "mocha": {
-      "serialize-javascript": "^7.1.0",
-      "yargs": "^18.1.0"
-    }
-  },
   "devDependencies": {
     "@0dep/toc": "^2.1.0",
     "@eslint/js": "^10.0.1",
@@ -73,8 +67,8 @@
     "eslint-plugin-perfectionist": "^5.9.0",
     "globals": "^17.6.0",
     "lru-cache": "^11.2.1",
-    "mocha": "^11.7.1",
-    "mocha-cakes-2": "^3.3.0",
+    "mocha": "^12.0.3",
+    "mocha-scenarios": "^1.0.1",
     "nock": "^14.0.9",
     "prettier": "^3.6.2",
     "texample": "^1.0.0",

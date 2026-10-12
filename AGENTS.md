@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-- `npm t` / `npm test` — runs Mocha (mocha-cakes-2 BDD UI) and on success also runs `lint`, `build`, `test:types` and `test:md` via `posttest`.
+- `npm t` / `npm test` — runs Mocha (mocha-scenarios BDD UI) and on success also runs `lint`, `build`, `test:types` and `test:md` via `posttest`.
 - `npm run lint` — `eslint . --cache` followed by `prettier . -c`.
 - `npm run build` — `dts-buddy` (regenerates `types/index.d.ts`) then the README TOC check.
-- `npm run test:types` — `tsc -p . && tsc -p test` (type-checks src and tests; BDD globals declared in `test/global.d.ts`).
+- `npm run test:types` — `tsc -p . && tsc -p test` (type-checks src and tests; BDD globals come from `mocha-scenarios` types, `expect` from `test/global.d.ts`).
 - `npm run cov:html` / `npm run test:lcov` — coverage via `c8`, the emulator is included.
 - Run a single test file: `npx mocha test/features/secrets-cache-feature.js`. Filter by name: `npx mocha -g 'pattern'`. Bail on first failure: `npx mocha -b`.
 - gRPC-level debug: `GRPC_TRACE=all GRPC_VERBOSITY=DEBUG npx mocha -b`. Library debug: `DEBUG=aller:google-cloud-secret*`.
@@ -37,7 +37,7 @@ The package is ESM only (Node `>=22`), published straight from `src/` with no bu
 
 ## Testing conventions
 
-- BDD style via `mocha-cakes-2`: `Feature` / `Scenario` / `Given` / `When` / `Then` / `And` are globals (configured in `eslint.config.js`). Files live in `test/features/`.
+- BDD style via `mocha-scenarios`: `Feature` / `Scenario` / `Given` / `When` / `Then` / `And` are globals (declared for eslint via `mocha-scenarios/globals` in `eslint.config.js` and for tsc via `types` in `test/tsconfig.json`). Files live in `test/features/`.
 - Tests run against the real gRPC emulator in-process; they do **not** mock `@google-cloud/secret-manager`. `nock` is enabled but `enableNetConnect(/127\.0\.0\.1|localhost/)` allows the local gRPC traffic.
 - `chronokinesis` (`ck.freeze()` / `ck.reset()`) is used to control time for grace-period and TTL assertions — always pair `freeze` with a `reset` in `after`.
 - `test/helpers/fake-auth.js` short-circuits the Google auth client so tests don't hit real auth (much faster).
